@@ -26,6 +26,8 @@ dsh web   # 重启生效
 
 要求：Windows 10 / 11 + Node.js 22.5+（PowerShell 系统自带）。
 
+> **pnpm 用户**：推荐用上面的 registry 安装（npm 包自带构建产物，零配置秒装）。git 方式安装需克隆仓库（较慢），且 pnpm 的 allowBuilds 只认「包名@精确 tarball URL」（URL 含 commit hash，仓库每次更新都会变），供应链门禁还可能改写你的 `pnpm-workspace.yaml`。本仓库已提交 `lib/`，git 安装**无需现场构建**；若仍被 `ERR_PNPM_GIT_DEP_PREPARE_NOT_ALLOWED` 拦截，改用 registry 安装即可。
+
 ## 使用
 
 **模型主动播报**（核心场景）——直接对话即可：

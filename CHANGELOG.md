@@ -16,6 +16,7 @@ All notable changes to this project will be documented in this file.
 
 ### Chore
 - 删除死文件 `src/tts/interface.js`（纯 JSDoc 注释零引用）；遗留测试脚本 `test-template.mjs` 清理
+- **`lib/` 提交进仓库**：git 安装免现场构建，绕开 pnpm `ERR_PNPM_GIT_DEP_PREPARE_NOT_ALLOWED` / allowBuilds（精确 tarball URL 含 commit hash、每次更新都变）拦截；`build.mjs` 在 esbuild 不可用时自动跳过构建、使用仓库内产物，esbuild `commonjs-variable-in-esm` 警告静音
 
 ## [0.2.2] - 2025
 
