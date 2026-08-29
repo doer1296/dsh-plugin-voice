@@ -228,6 +228,10 @@ function ensureEngine() {
 
 /** 重置引擎缓存（设置面板切引擎时调用）。 */
 async function refreshEngine() {
+  // 设计语义（勿当 bug 修）：切换是「软切换」——已入队/在播的旧队列项仍持有旧引擎引用，
+  // 会用旧引擎收尾（失败则走 fallbackEngine 回退 SAPI），不中断正在播报的语音；
+  // 切换后新入队的项才用新引擎。因此 err.log 里切换瞬间偶见一条旧引擎（火山）尝试属预期，
+  // 最终 fallback 正确、不阻塞。若想硬切需先 queue.stop()（代价是掐断在播语音，故不采用）。
   resetEngineCache()
   resetConfigCache()
   engine = null
