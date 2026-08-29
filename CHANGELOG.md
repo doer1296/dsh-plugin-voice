@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.2] - 2025
+
+### Changed
+- **删除「通用提示音」（notificationSound）**：提示音完全由 5 场景的 `sceneSounds` 决定——有场景音效才响（开始/完成/出错/呼叫/关键点各一个），无场景或未配置则不响提示音。设置面板 / 测试页 / config.example 同步移除通用提示音
+
+## [0.2.1] - 2025
+
+### Fixed
+- **SAPI 无中文语音时不再「静默无声」**：speak 前检测文本含中文 + 本机 SAPI 无中文语音 → 明确报错提示（安装中文语音包或配置火山 Key），不假装播报成功
+- **SAPI 不再被传入火山音色 ID**：SelectVoice 只匹配本机 SAPI 语音名，无匹配用系统默认（不再抛异常）；PowerShell 加 `$ErrorActionPreference='Stop'` + spawn 捕获 stderr，失败带详情
+- **`VOLCANO_API_KEY` 环境变量通道打通**：`loadConfig()` 对合并后的完整配置统一解析 `${ENV_VAR}`，默认值里的 `${VOLCANO_API_KEY}` 也能被解析（此前字面串被误判为「未配 Key」而回退 SAPI）
+- **配置优先级修正为文档承诺的语义**：settings.yaml（面板 16 键）> config.json（补高级参数）> 默认值；config.json 不再静默覆盖面板改动，其独有键（roles/scenes/cloud 音质参数）保留
+- **`applies:"live"` 名副其实**：订阅 settings scope `watch()`，设置变更（面板保存 / 手改 settings.yaml）实时刷新配置缓存 + 引擎，不再读旧缓存
+- **get_voices / speak / 设置面板暴露实际引擎**（volcano=火山云端 / windows-sapi=离线），用户可自助确认是否在跑云端
+
+### Changed
+- 设置面板新增：通用提示音下拉、云端音质参数（能量增益 / 网络重试 / 句间停顿 / 逗号停顿）、实际引擎状态；`/voice` 测试页同步
+- `peerDependencies` 标 `peerDependenciesMeta` optional，消除 pnpm 安装警告
+
+## [0.2.0] - 2025
+
+### Added
+- **提问自动呼叫（防卡住）**：agent 任务中途 `ask_user_question` 需要用户确认/选择/填入时——发起瞬间查空闲，**用户已离开（空闲 > 60s）→ 3 秒宽限后立即播报**「呼叫」模板（need_interaction 场景，叮叮提示音）；用户在场 → 等 `callDelaySeconds` 秒未回答且已离开再播；用户回答后自动取消；子 agent 提问（DSH 会拒绝）不会误播。开关 `onQuestion`（默认开），设置面板 + /voice 测试页均可开关。通过 `inject: ['userQuestions']` 声明服务依赖后包装 `ctx.userQuestions.ask`（沙箱 ctx 未在 inject 声明的服务不可访问）
+- 插件市场上架配套：README 顶部收录徽章（npm / dsh-plugin.org / MIT / Windows）+「兼容性与权限说明」章节
+
+### Fixed
+- **蓝牙前导静音移到提示音之前**：原顺序「提示音 → 前导静音 → 语音」会先响提示音但此时蓝牙链路未建立，提示音被建链杂音吞掉听不到。改为「**前导静音（唤醒蓝牙）→ 提示音（完整可闻）→ 语音**」——静音直接前插进提示音 WAV，语音侧跳过自身前导静音避免双份静音
+
 ## [0.1.2] - 2025
 
 ### Changed

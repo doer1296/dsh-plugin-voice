@@ -152,9 +152,19 @@ button.ghost { background: transparent; border: 1px solid var(--dsw-alias-border
         <span>发新消息（agent 空闲）＝新任务开始，自动播报「开始」模板</span>
       </div>
     </div>
+    <div class="row" style="min-height:38px">
+      <label style="flex:none;color:var(--dsw-alias-label-secondary,#9aa3ad);font-size:12px;min-width:70px">提问自动呼叫</label>
+      <div style="display:flex;align-items:center;gap:6px;color:var(--dsw-alias-label-primary,#e6e8eb)">
+        <input type="checkbox" id="set-question" style="width:auto;accent-color:var(--dsw-alias-brand-primary,#4d8cff)">
+        <span>任务中途 agent 要你确认/选择/填入时，等待过久且你离开 → 自动播报「呼叫」防卡住</span>
+      </div>
+    </div>
     <div class="row">
       <label>蓝牙前导静音(ms)</label>
       <input type="number" id="set-silence" min="0" max="3000" style="width:90px">
+    </div>
+    <div class="row" style="color:var(--dsw-alias-label-secondary,#9aa3ad);font-size:12px">
+      <span id="engine-status">实际引擎：…</span>
     </div>
     <div class="row">
       <button onclick="saveSettings()">保存设置</button>
@@ -222,6 +232,13 @@ async function loadSettings() {
     $('#set-delay').value = c.callDelaySeconds || 60;
     $('#set-silence').value = c.cloud?.leadingSilence ?? 1500;
     $('#set-taskstart').checked = c.onTaskStart !== false;
+    $('#set-question').checked = c.onQuestion !== false;
+    // 实际引擎状态（volcano / windows-sapi）
+    const eng = $('#engine-status');
+    if (eng) {
+      const map = { volcano: '火山云端', 'windows-sapi': 'SAPI 离线' };
+      eng.textContent = '实际引擎：' + (map[d.engine] || d.engine || '未知');
+    }
   } catch(e) { $('#setmsg').textContent = '设置读取失败: ' + e.message; }
 }
 async function saveSettings() {
@@ -230,6 +247,7 @@ async function saveSettings() {
     engine: $('#set-engine').value,
     callDelaySeconds: Number($('#set-delay').value) || 60,
     onTaskStart: $('#set-taskstart').checked,
+    onQuestion: $('#set-question').checked,
     cloud: { leadingSilence: Number($('#set-silence').value) ?? 1500 },
   };
   const r = await fetch('/voice/api/settings', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });

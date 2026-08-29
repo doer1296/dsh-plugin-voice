@@ -1,12 +1,12 @@
 /**
  * 配置加载与选项解析（移植自 agent-voice-mcp-minus dist/config.js，简化角色匹配）。
  *
- * 配置优先级：
- *   1. DSH 原生设置（settings.yaml 的 voice 分区，由 index.js 注入 settings scope）—— 最高优先级
- *   2. config.json（~/.dsh/voice/config.json）—— 兼容回退（迁移后可不保留）
+ * 配置优先级（settings.yaml 单源，config.json 补高级参数）：
+ *   1. DSH 原生设置（settings.yaml 的 voice 分区）—— 面板 16 键最高优先（覆盖 config.json 同键）
+ *   2. config.json（~/.dsh/voice/config.json）—— 兜底 + 面板没有的高级参数（roles/scenes/cloud 音质参数）
  *   3. 默认值
  *
- * 支持 ${ENV_VAR} 环境变量引用（API Key 可不落盘）。
+ * 支持 ${ENV_VAR} 环境变量引用（API Key 可不落盘；合并后统一解析，默认值里的引用也生效）。
  */
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -37,6 +37,7 @@ function mapSettingsToConfig(v) {
   if (v.callDelaySeconds !== undefined) result.callDelaySeconds = v.callDelaySeconds
   if (v.onTurnEnd !== undefined) result.onTurnEnd = v.onTurnEnd
   if (v.onTaskStart !== undefined) result.onTaskStart = v.onTaskStart
+  if (v.onQuestion !== undefined) result.onQuestion = v.onQuestion
   if (v.autoCall !== undefined) result.autoCall = v.autoCall
   if (v.leadingSilence !== undefined) result.leadingSilence = v.leadingSilence
   if (v.textClean !== undefined) result.textClean = v.textClean
@@ -48,6 +49,11 @@ function mapSettingsToConfig(v) {
   if (v.cloud_apiKey !== undefined) cloud.apiKey = v.cloud_apiKey
   if (v.cloud_voice !== undefined) cloud.voice = v.cloud_voice
   if (v.cloud_resourceId !== undefined) cloud.resourceId = v.cloud_resourceId
+  if (v.cloud_energyRate !== undefined) cloud.energyRate = v.cloud_energyRate
+  if (v.cloud_retries !== undefined) cloud.retries = v.cloud_retries
+  if (v.cloud_timeout !== undefined) cloud.timeout = v.cloud_timeout
+  if (v.cloud_pauseSentenceMs !== undefined) cloud.pauseSentenceMs = v.cloud_pauseSentenceMs
+  if (v.cloud_pauseCommaMs !== undefined) cloud.pauseCommaMs = v.cloud_pauseCommaMs
   if (v.leadingSilence !== undefined) cloud.leadingSilence = v.leadingSilence
   if (Object.keys(cloud).length) result.cloud = cloud
   if (v.templates && typeof v.templates === 'object') result.templates = v.templates
@@ -78,7 +84,7 @@ const DEFAULT_CONFIG = {
   rate: 200,
   volume: 1,
   onTaskStart: true,
-  notificationSound: 'melodious',
+  onQuestion: true, // agent 提问（ask_user_question）等待过久且用户离开 → 播报「呼叫」防卡住
   sceneSounds: {
     task_start: 'light',        // 开始：轻快短音
     task_complete: 'bright',    // 完成：明亮上扬
@@ -121,7 +127,20 @@ export function loadConfig(configPath) {
   if (!configPath && cachedConfig) return cachedConfig
   let fileConfig = {}
 
-  // 1. DSH 原生设置（settings.yaml 的 voice 分区，最高优先级）
+  // 1. config.json（兜底：补 settings 面板没有的高级参数，如 roles/scenes/nlpPara 等）
+  //    低优先级——面板能改的 16 个键以 settings 为准，config.json 的同键会被覆盖
+  if (existsSync(resolvedPath)) {
+    try {
+      const fileVal = JSON.parse(readFileSync(resolvedPath, 'utf-8'))
+      fileConfig = deepMerge(fileConfig, fileVal)
+    } catch {
+      console.error(`[voice] 配置文件解析失败: ${resolvedPath}，使用默认`)
+    }
+  }
+
+  // 2. DSH 原生设置（settings.yaml 的 voice 分区）——最高优先级。
+  //    scope.get() 返回 resolved（含 schema 默认值），因此面板 16 键在此覆盖 config.json；
+  //    settings 不认识的键（roles/scenes/cloud.nlpPara/energyRate...）保留 config.json 值。
   if (_settingsScope && !configPath) {
     try {
       const settingsVal = _settingsScope.get()
@@ -134,17 +153,9 @@ export function loadConfig(configPath) {
     }
   }
 
-  // 2. config.json（兼容回退）
-  if (existsSync(resolvedPath)) {
-    try {
-      const fileVal = JSON.parse(readFileSync(resolvedPath, 'utf-8'))
-      fileConfig = deepMerge(fileConfig, resolveEnvVars(fileVal))
-    } catch {
-      console.error(`[voice] 配置文件解析失败: ${resolvedPath}，使用默认`)
-    }
-  }
-
-  cachedConfig = deepMerge(DEFAULT_CONFIG, fileConfig)
+  // 3. 合并默认值后，对完整配置统一解析 ${ENV_VAR}（默认值里的 ${VOLCANO_API_KEY}
+  //    也能被解析——否则字面 ${...} 会被误判为「未配 Key」而回退 SAPI）
+  cachedConfig = resolveEnvVars(deepMerge(DEFAULT_CONFIG, fileConfig))
   return cachedConfig
 }
 
@@ -218,5 +229,7 @@ export function resolveOptions(config, scene, override, role) {
   if (override?.volume !== undefined) result.volume = override.volume
   if (override?.emotion !== undefined) result.emotion = override.emotion
   if (override?.emotionIntensity !== undefined) result.emotionIntensity = override.emotionIntensity
+  // 蓝牙前导静音：提示音带头静音（唤醒蓝牙链路）用；语音侧在同一提示音后播放时跳过自身前导静音
+  result.leadingSilence = config.leadingSilence ?? config.cloud?.leadingSilence ?? 0
   return result
 }

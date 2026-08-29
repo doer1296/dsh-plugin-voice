@@ -92,11 +92,19 @@ export class VoiceQueue {
       this.prevEnqueuedAt = item.enqueuedAt
       let onBeforePlay
       try {
-        if (!this.hasPlayedNotification && this.notificationSound !== false) {
-          const sound = item.notificationSound ?? this.notificationSound
-          this.hasPlayedNotification = true
-          const playSound = await getPlayNotificationSound()
-          onBeforePlay = () => playSound(sound)
+        // 提示音完全由场景决定：仅当本条消息带场景音效（item.notificationSound 非空/false/none）才响；
+        // 无场景音效的播报不响提示音（不存在通用兜底音）
+        if (!this.hasPlayedNotification) {
+          const sound = item.notificationSound
+          if (sound && sound !== false && sound !== 'none') {
+            this.hasPlayedNotification = true
+            const playSound = await getPlayNotificationSound()
+            // 前导静音交给提示音带头（静音先响唤醒蓝牙 → 提示音完整可闻），
+            // 语音侧不再重复前插静音（否则双份静音拖长间隔）
+            const leadMs = item.options?.leadingSilence ?? 0
+            onBeforePlay = () => playSound(sound, leadMs)
+            if (leadMs > 0) item.options = { ...item.options, skipLeadingSilence: true }
+          }
         }
         await this.engine.speak(item.text, item.options, onBeforePlay)
       } catch (err) {

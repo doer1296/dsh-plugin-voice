@@ -28,7 +28,7 @@ import { loadConfig, resolveOptions, resolveRole, resetConfigCache, setSettingsS
 
 export const name = 'dsh-plugin-voice'
 
-export const inject = ['commands', 'webServer', 'tools', 'systemPrompt', 'settings']
+export const inject = ['commands', 'webServer', 'tools', 'systemPrompt', 'settings', 'userQuestions']
 
 const PACKAGE_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const PS1 = join(PACKAGE_ROOT, 'notify.ps1')
@@ -38,8 +38,97 @@ const VALID_SCENES = ['task_start', 'task_complete', 'task_error', 'need_interac
 const VALID_EMOTIONS = ['neutral', 'happy', 'sad', 'angry', 'calm', 'excited']
 const SPEAK_MAX_CHARS = 300
 
+/** 从引擎实例读真实引擎名（volcano / windows-sapi）。 */
+function engineNameOf(engine) {
+  if (!engine) return 'unknown'
+  if (typeof engine.engineName === 'string') return engine.engineName
+  if (typeof engine.type === 'string' && engine.type !== 'undefined') return engine.type
+  return String(engine.constructor?.name ?? 'unknown')
+}
+
 /** 待确认的通知：sessionId -> { summary, responded, timer } */
 const pendingCalls = new Map()
+
+/** 提问呼叫：agent ask_user_question 等待回答的呼叫令牌集合（每个 ask 一个，回答即取消） */
+const questionCallTokens = new Set()
+
+/** 发起提问时用户已离开：不再干等 60 秒，短暂宽限（等提问 UI 渲染）后立即呼叫 */
+const QUESTION_IMMEDIATE_GRACE_MS = 3000
+
+/** 播报「呼叫」模板（need_interaction 场景，叮叮提示音） */
+function fireQuestionCall(why) {
+  const cfg = loadConfig()
+  if (cfg.onQuestion === false) return
+  console.log(`[voice] agent 提问未回答且用户不在电脑前（${why}），播报「呼叫」防卡住`)
+  notify('speak', '需要你的确认', renderTemplate(cfg.templates?.need_interaction ?? DEFAULT_TEMPLATES.need_interaction), {
+    scene: 'need_interaction', emotion: 'calm',
+  }).catch((e) => console.error('[voice] 提问呼叫播报失败:', e.message))
+}
+
+/**
+ * 提问呼叫调度：agent 发起提问（ask_user_question）时启动。
+ * - 发起瞬间先查空闲：用户本来就已离开（空闲 > 60s）→ 3 秒宽限后**立即**播报，不干等；
+ * - 用户在场 → 等 callDelaySeconds 秒后复查：仍在（空闲 ≤ 60s）→ 不打扰；已离开 → 播报。
+ * 返回令牌（token），调用方在 ask() 结束（回答/取消/失败）时用它取消。
+ */
+function scheduleQuestionCall(request) {
+  const config = loadConfig()
+  if (config.onQuestion === false) return null
+  const n = Array.isArray(request?.questions) ? request.questions.length : 0
+  if (n <= 0) return null
+  const delaySec = config.callDelaySeconds || 60
+  const token = { cancelled: false, timer: null }
+  questionCallTokens.add(token)
+  ;(async () => {
+    // 发起提问瞬间先查一次空闲，决定「立即呼叫」还是「等待+复查」
+    let alreadyAway = false
+    try {
+      const idleNow = await queryIdle()
+      alreadyAway = idleNow > 60
+      if (alreadyAway) {
+        console.log(`[voice] agent 发起提问（${n} 个问题待确认），用户已离开（空闲 ${idleNow}s），${QUESTION_IMMEDIATE_GRACE_MS / 1000} 秒宽限后立即播报「呼叫」`)
+      }
+    } catch {}
+    if (token.cancelled) return
+    if (!alreadyAway) {
+      console.log(`[voice] agent 发起提问（${n} 个问题待确认），${delaySec} 秒未回答且用户离开将播报「呼叫」`)
+    }
+    token.timer = setTimeout(async () => {
+      token.timer = null
+      if (token.cancelled) { questionCallTokens.delete(token); return }
+      if (!alreadyAway) {
+        // 等待到期复查：用户近期有操作（空闲 ≤ 60s）→ 不打扰
+        try {
+          const cfg = loadConfig()
+          if (cfg.onQuestion === false) { questionCallTokens.delete(token); return }
+          const idle = await queryIdle()
+          if (idle <= 60) {
+            console.log(`[voice] 提问等待超时，但用户近期有操作（空闲 ${idle}s），不播报（应该正在看）`)
+            questionCallTokens.delete(token)
+            return
+          }
+        } catch (e) {
+          console.error('[voice] 提问呼叫处理失败:', e.message)
+          questionCallTokens.delete(token)
+          return
+        }
+      }
+      questionCallTokens.delete(token)
+      fireQuestionCall(alreadyAway ? `发起提问时用户已离开，宽限 ${QUESTION_IMMEDIATE_GRACE_MS / 1000}s` : `等待 ${delaySec}s 无人应答`)
+    }, alreadyAway ? QUESTION_IMMEDIATE_GRACE_MS : delaySec * 1000)
+  })()
+  return token
+}
+
+/** 取消提问呼叫（ask 结束：已回答 / 已取消 / 校验失败） */
+function cancelQuestionCall(token) {
+  if (!token) return
+  token.cancelled = true
+  if (token.timer) { clearTimeout(token.timer); token.timer = null }
+  if (questionCallTokens.delete(token)) {
+    console.log('[voice] 提问已回答/结束，取消「呼叫」计时')
+  }
+}
 
 const homeDir = process.env.USERPROFILE || process.env.HOME || ''
 const CONFIG_FILE = join(homeDir, '.dsh', 'voice', 'config.json')
@@ -128,7 +217,8 @@ function ensureEngine() {
     })
     // SAPI 兜底固定启用：火山失败（断网/额度/Key 失效）自动回退 SAPI，不可关闭
     const fallbackEngine = await createFallbackEngine()
-    voiceQueue = new VoiceQueue(engine, 2, config.notificationSound, fallbackEngine)
+    // 无通用提示音：提示音完全由 5 场景的 sceneSounds 决定（enqueue 时逐条传入）
+    voiceQueue = new VoiceQueue(engine, 2, false, fallbackEngine)
     return voiceQueue
   })().finally(() => {
     engineInitPromise = null
@@ -186,7 +276,8 @@ async function notify(mode, title, message, options = {}) {
         emotion: options.emotion,
         emotionIntensity: options.emotionIntensity,
       }, role)
-      const sceneSound = (scene && config.sceneSounds?.[scene]) ?? config.notificationSound
+      // 提示音完全由场景决定：有场景音效才响，无场景或未配置 → 不响（false）
+      const sceneSound = scene && config.sceneSounds?.[scene] ? config.sceneSounds[scene] : false
       const q = await ensureEngine()
       q.enqueue(speechText, resolved, sceneSound)
     }
@@ -194,7 +285,8 @@ async function notify(mode, title, message, options = {}) {
     if (mode === 'both') {
       // 不 return，继续走 toast
     } else {
-      return mode
+      // 返回真实引擎名（火山 / SAPI），speak 工具据此向用户暴露实际用的引擎
+      return { mode, engine: engineNameOf((await ensureEngine()).engine) }
     }
     // both 模式下 toast 部分用截断后的文本
     text = text.slice(0, SPEAK_MAX_CHARS)
@@ -219,7 +311,8 @@ async function notify(mode, title, message, options = {}) {
     await task
   }
 
-  return mode
+  // toast/sound/both：无语音引擎参与，engine 为空
+  return { mode }
 }
 
 /** 渲染模板：{{summary}} 自动加"："前缀；{{session}} 会话 id。 */
@@ -295,6 +388,7 @@ export function apply(ctx) {
       callDelaySeconds: z.number().default(60),
       onTurnEnd: z.boolean().default(true),
       onTaskStart: z.boolean().default(true),
+      onQuestion: z.boolean().default(true),
       autoCall: z.boolean().default(true),
       leadingSilence: z.number().default(1500),
       textClean: z.boolean().default(true),
@@ -304,6 +398,11 @@ export function apply(ctx) {
       cloud_apiKey: z.string().default(''),
       cloud_voice: z.string().default('zh_female_daimengchuanmei_moon_bigtts'),
       cloud_resourceId: z.string().default('seed-tts-1.0'),
+      cloud_energyRate: z.number().default(0),
+      cloud_retries: z.number().default(1),
+      cloud_timeout: z.number().default(30000),
+      cloud_pauseSentenceMs: z.number().default(400),
+      cloud_pauseCommaMs: z.number().default(200),
       templates: z.object({
         task_start: z.string().default(DEFAULT_TEMPLATES.task_start),
         task_complete: z.string().default(DEFAULT_TEMPLATES.task_complete),
@@ -323,6 +422,17 @@ export function apply(ctx) {
     if (_settingsScope) {
       console.log('[voice] 已注册原生设置（settings.yaml 的 voice 分区）')
       setSettingsScope(_settingsScope)
+      // applies:"live" 名副其实：订阅 settings 变更 → 刷新配置缓存 + 引擎，
+      // 面板保存 / 手改 settings.yaml 都在同一进程内实时生效（不再读旧缓存）
+      _settingsScope.watch(() => {
+        try {
+          resetConfigCache()
+          refreshEngine().catch((e) => console.error('[voice] 设置变更刷新引擎失败:', e.message))
+          console.log('[voice] settings 已变更，实时刷新配置与引擎')
+        } catch (e) {
+          console.error('[voice] settings watch 处理失败:', e.message)
+        }
+      })
     }
   } catch (e) {
     console.error('[voice] settings 注册失败，回退 config.json:', e.message)
@@ -444,6 +554,26 @@ export function apply(ctx) {
       }
     })
 
+  // ── 智能呼叫：agent 中途 ask_user_question（确认/选择/填入）长时间未回答 → 播报「呼叫」防卡住 ──
+  // 包装 ctx.userQuestions.ask：发起提问时启动计时（callDelaySeconds），到期且用户离开才播；
+  // 用户回答（promise 结束）或校验失败（子 agent 提问会抛错）即取消，不打扰。
+  try {
+    const uq = ctx.userQuestions
+    if (uq && typeof uq.ask === 'function' && !uq.__voiceQuestionWrapped) {
+      uq.__voiceQuestionWrapped = true
+      const originalAsk = Object.getPrototypeOf(uq).ask
+      uq.ask = function wrappedAsk(request) {
+        const timer = scheduleQuestionCall(request)
+        const result = originalAsk.call(uq, request)
+        Promise.resolve(result).catch(() => {}).finally(() => cancelQuestionCall(timer))
+        return result
+      }
+      console.log('[voice] 已接管 ctx.userQuestions.ask：agent 提问等待过久且用户离开时将播报「呼叫」')
+    }
+  } catch (e) {
+    console.error('[voice] 包装 userQuestions 失败:', e.message)
+  }
+
   // ── agent 工具：speak（模型主动播报，融合 A 的 notify_user 语义 + B 的 speak 参数）──
   ctx.tools?.register?.({
     name: 'speak',
@@ -467,7 +597,7 @@ export function apply(ctx) {
     },
     output: {
       schema: { type: 'object', additionalProperties: true, properties: {} },
-      render: (args, value) => [{ type: 'text', text: `已播报（${value.mode}）` }],
+      render: (args, value) => [{ type: 'text', text: `已播报（${value.mode}${value.engine ? ` · ${value.engine}` : ''}）` }],
     },
     execute: async (args, exec) => {
       const scene = args.scene ?? 'task_complete'
@@ -477,7 +607,7 @@ export function apply(ctx) {
         summary: String(args.summary ?? '').trim(),
         session: '',
       })
-      const mode = await notify(
+      const result = await notify(
         args.mode ?? 'speak',
         args.title,
         text,
@@ -497,7 +627,7 @@ export function apply(ctx) {
           console.log(`[voice] 模型已主动播报，取消兜底呼叫（${exec.agent.id}）`)
         }
       }
-      return { mode, text: text.slice(0, 80) }
+      return { mode: result.mode, engine: result.engine ?? null, text: text.slice(0, 80) }
     },
     isConcurrencySafe: () => false, // 语音播报必须串行
     timeoutMs: 120000,
@@ -519,14 +649,14 @@ export function apply(ctx) {
     },
     output: {
       schema: { type: 'object', additionalProperties: true, properties: {} },
-      render: (args, value) => [{ type: 'text', text: `已通知用户（${value.mode}）` }],
+      render: (args, value) => [{ type: 'text', text: `已通知用户（${value.mode}${value.engine ? ` · ${value.engine}` : ''}）` }],
     },
     execute: async (args, exec) => {
       const scene = args.scene ?? 'task_complete'
       const custom = String(args.message ?? '').trim()
       const cfg = loadConfig()
       const text = custom || renderTemplate(cfg.templates?.[scene] ?? DEFAULT_TEMPLATES[scene] ?? DEFAULT_TEMPLATES.task_complete, {})
-      const mode = await notify(args.mode ?? 'toast', args.title, text, { scene })
+      const result = await notify(args.mode ?? 'toast', args.title, text, { scene })
       if (exec?.agent?.id) {
         const p = pendingCalls.get(exec.agent.id)
         if (p && !p.responded) {
@@ -535,7 +665,7 @@ export function apply(ctx) {
           pendingCalls.delete(exec.agent.id)
         }
       }
-      return { mode, text: text.slice(0, 80) }
+      return { mode: result.mode, engine: result.engine ?? null, text: text.slice(0, 80) }
     },
     isConcurrencySafe: () => false,
     timeoutMs: 120000,
@@ -577,16 +707,18 @@ export function apply(ctx) {
   // ── agent 工具：get_voices（列可用音色）──
   ctx.tools?.register?.({
     name: 'get_voices',
-    description: '获取当前 TTS 引擎可用的所有音色列表（用于选择 speak 时的 voice 参数）。',
+    description: '获取当前 TTS 引擎可用的音色列表，并返回实际引擎（volcano=火山云端 / windows-sapi=离线）。用于选择 speak 的 voice 参数，也用于向用户确认当前是否在跑云端语音。',
     parameters: { type: 'object', properties: {} },
     output: {
       schema: { type: 'object', additionalProperties: true, properties: {} },
-      render: (args, value) => [{ type: 'text', text: `可用音色：${(value?.voices ?? []).join(', ')}` }],
+      render: (args, value) => [
+        { type: 'text', text: `引擎：${value.engine}\n可用音色：${(value?.voices ?? []).join(', ') || '（无）'}` },
+      ],
     },
     execute: async () => {
       const q = await ensureEngine()
       const voices = await q.engine.getVoices()
-      return { voices }
+      return { engine: engineNameOf(q.engine), voices }
     },
     isConcurrencySafe: () => true,
   })
@@ -604,7 +736,7 @@ export function apply(ctx) {
       const content = text || renderTemplate(cfg.templates?.[safeScene] ?? DEFAULT_TEMPLATES[safeScene] ?? DEFAULT_TEMPLATES.task_complete, {})
       try {
         const used = await notify(mode, 'dsh 语音', content, { scene: safeScene, emotion, role })
-        return { kind: 'success', text: `已播报（${used}）：${content.slice(0, 60)}${content.length > 60 ? '…' : ''}` }
+        return { kind: 'success', text: `已播报（${used.mode}${used.engine ? ` · ${used.engine}` : ''}）：${content.slice(0, 60)}${content.length > 60 ? '…' : ''}` }
       } catch (e) {
         return { kind: 'error', text: `[voice] ${e.message}` }
       }
@@ -634,7 +766,7 @@ export function apply(ctx) {
         const used = await notify(mode, 'dsh 语音', text, {
           scene, emotion: body.emotion, role: body.role,
         })
-        sendJson(res, 200, { ok: true, mode: used, text: text.slice(0, 80) })
+        sendJson(res, 200, { ok: true, mode: used.mode, engine: used.engine ?? null, text: text.slice(0, 80) })
       } catch (e) {
         sendJson(res, 500, { error: e.message })
       }
@@ -647,7 +779,16 @@ export function apply(ctx) {
     handler: async (req, res) => {
       try {
         if (req.method === 'GET') {
-          sendJson(res, 200, { config: loadConfig(), version: __VOICE_PLUGIN_VERSION__ })
+          const config = loadConfig()
+          // 当前实际引擎（火山 / SAPI），供设置面板和 agent 确认是否在跑云端
+          let activeEngine = null
+          try {
+            const q = await ensureEngine()
+            activeEngine = engineNameOf(q.engine)
+          } catch (e) {
+            activeEngine = `error: ${e.message}`
+          }
+          sendJson(res, 200, { config, version: __VOICE_PLUGIN_VERSION__, engine: activeEngine })
           return
         }
         if (req.method === 'POST') {
@@ -661,6 +802,7 @@ export function apply(ctx) {
             if (body.callDelaySeconds !== undefined) patch.callDelaySeconds = body.callDelaySeconds
             if (body.onTurnEnd !== undefined) patch.onTurnEnd = body.onTurnEnd
             if (body.onTaskStart !== undefined) patch.onTaskStart = body.onTaskStart
+            if (body.onQuestion !== undefined) patch.onQuestion = body.onQuestion
             if (body.autoCall !== undefined) patch.autoCall = body.autoCall
             if (body.leadingSilence !== undefined) patch.leadingSilence = body.leadingSilence
             if (body.textClean !== undefined) patch.textClean = body.textClean
@@ -670,6 +812,11 @@ export function apply(ctx) {
             if (body.cloud?.apiKey !== undefined) patch.cloud_apiKey = body.cloud.apiKey
             if (body.cloud?.voice !== undefined) patch.cloud_voice = body.cloud.voice
             if (body.cloud?.resourceId !== undefined) patch.cloud_resourceId = body.cloud.resourceId
+            if (body.cloud?.energyRate !== undefined) patch.cloud_energyRate = body.cloud.energyRate
+            if (body.cloud?.retries !== undefined) patch.cloud_retries = body.cloud.retries
+            if (body.cloud?.timeout !== undefined) patch.cloud_timeout = body.cloud.timeout
+            if (body.cloud?.pauseSentenceMs !== undefined) patch.cloud_pauseSentenceMs = body.cloud.pauseSentenceMs
+            if (body.cloud?.pauseCommaMs !== undefined) patch.cloud_pauseCommaMs = body.cloud.pauseCommaMs
             if (body.templates && typeof body.templates === 'object') patch.templates = body.templates
             if (body.sceneSounds && typeof body.sceneSounds === 'object') patch.sceneSounds = body.sceneSounds
             try {

@@ -150,6 +150,7 @@ function splitForPauses(text, opts) {
 
 export class VolcanoProvider {
   type = 'volcano'
+  get engineName() { return 'volcano' }
   currentProcess = null
   tempFile = null
 
@@ -166,6 +167,7 @@ export class VolcanoProvider {
       volume: options.volume,
       emotion: options.emotion,
       emotionIntensity: options.emotionIntensity,
+      skipLeadingSilence: options.skipLeadingSilence,
     })
     const tempFile = join(tmpdir(), `dsh-voice-volcano-${Date.now()}.wav`)
     this.tempFile = tempFile
@@ -212,7 +214,7 @@ export class VolcanoProvider {
       energyRate: this.config.energyRate ?? 0,
       retries: this.config.retries ?? 1, // 网络瞬时故障重试次数
     }
-    const lead = this.config.leadingSilence || 0
+    const lead = params?.skipLeadingSilence ? 0 : (this.config.leadingSilence || 0)
     const pauseControl = this.config.pauseControl ?? true
     const segs = pauseControl && format === 'pcm'
       ? splitForPauses(params.text, {
