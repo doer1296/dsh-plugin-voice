@@ -1,5 +1,10 @@
 # dsh-plugin-voice
 
+[![npm version](https://img.shields.io/npm/v/dsh-plugin-voice.svg)](https://www.npmjs.com/package/dsh-plugin-voice)
+[![Listed on dsh-plugin.org](https://dsh-plugin.org/badges/listed.svg)](https://dsh-plugin.org/plugins/doer1296/dsh-plugin-voice)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Windows-blue)](https://github.com/doer1296/dsh-plugin-voice#兼容性与权限说明)
+
 > DeepSeek Harness 插件：语音 + 通知出口——agent 通过云端 TTS（火山 seed-tts 高音质，失败自动回退 SAPI）/ 桌面通知 / 提示音主动联系用户。
 >
 > 融合 [dsh-plugin-notify](https://github.com/huguangyu666/dsh-plugin-notify)（DSH 原生深度集成 + 智能确认窗口呼叫）与 [agent-voice-mcp-minus](https://github.com/doer1296/agent-voice-mcp-minus)（云端 seed-tts + 长文案停顿 + 文本清洗 + 情绪映射 + 蓝牙前导静音）两套优势，为 DSH 量身定制，性能最优、适配性最好。Windows 原生，零 Python 依赖。
@@ -124,6 +129,24 @@ agent 会调用 `speak` 工具，语音播报会念出内容（自动清洗 Mark
 - **引擎层 factory 抽象**：`createTTSEngine` 工厂 + provider 接口（speak/getVoices/stop），未来加新引擎仅需新增 provider 文件
 - **后端 Windows 原生**：桌面通知 NotifyIcon / 场景蜂鸣 Console.Beep / 播放 WAV Media.SoundPlayer / 空闲检测 GetLastInputInfo（均 PowerShell，零 Python）
 - **HTTP 用 Node 22+ 原生 fetch**：不引 axios / node-fetch
+
+## 兼容性与权限说明
+
+供开发者评估是否安装使用：
+
+**兼容性**
+
+- **操作系统**：Windows 10 / 11（依赖 SAPI、Media.SoundPlayer、Console.Beep、GetLastInputInfo 等 Windows 原生能力，不支持 macOS / Linux）
+- **Node.js**：>= 22.5（依赖原生 fetch / node:https）
+- **适配 profile**：`web`（设置面板 + /voice 测试页）；其他 profile 可用 speak 等工具但无 Web 界面
+- **火山 Key 可选**：未配置自动回退 SAPI 离线语音，播报永不中断
+
+**权限与外部访问**
+
+- **文件系统**：读写 `~/.dsh/settings.yaml` 的 `voice:` 分区（插件配置）；向系统临时目录写入音频临时文件（播放后即删）
+- **进程调用**：PowerShell（桌面通知 / 音频播放 / 用户空闲检测 / SAPI 合成），均为 Windows 系统内置组件
+- **网络访问**：仅火山引擎 TTS API（需你自行配置 appkey，流量按火山计费）；**无遥测、无数据上报、无其他外联**
+- **DSH 注入点**：工具（speak / notify_user / user_activity / stop_voice / get_voices）、命令（/voice）、路由（/voice 测试页）、系统提示词、设置面板、事件监听
 
 ## 致谢
 
