@@ -1,0 +1,4 @@
+# dsh-plugin-voice bundle patch：挂载插件自身
+- insert:
+    - id: voice
+      name: 'dsh-plugin-voice'

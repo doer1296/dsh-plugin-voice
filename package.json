@@ -1,0 +1,76 @@
+{
+  "name": "dsh-plugin-voice",
+  "version": "0.1.2",
+  "description": "DeepSeek Harness 插件：语音 + 通知出口——agent 通过云端 TTS（火山 seed-tts 高音质，失败自动回退 SAPI）/ 桌面通知 / 提示音主动联系用户。融合 dsh-plugin-notify 的 DSH 原生深度集成与 agent-voice-mcp-minus 的云端 TTS 调优，零 Python 依赖，Windows 原生。",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "default": "./lib/client.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "notify.ps1",
+    "idle.ps1",
+    "assets",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE",
+    "config.example.json"
+  ],
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek",
+    "harness",
+    "voice",
+    "tts",
+    "notification",
+    "notify",
+    "speech",
+    "alert",
+    "volcano",
+    "seed-tts",
+    "sapi",
+    "windows"
+  ],
+  "license": "MIT",
+  "author": "dsh-plugin-voice (融合 dsh-plugin-notify by huguangyu666 + agent-voice-mcp-minus fork of al96169/agent-voice-mcp by Antonio Liang)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/doer1296/dsh-plugin-voice.git"
+  },
+  "engines": {
+    "node": ">=22.5"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-locale"
+      ],
+      "platform": "web"
+    }
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "prepack": "node build.mjs"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh": ">=0.1.0-rc.6",
+    "react": ">=18.0.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  }
+}

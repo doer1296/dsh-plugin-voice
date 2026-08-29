@@ -1,0 +1,76 @@
+{
+  "_comment": "dsh-plugin-voice 配置示例。实际配置优先用 DSH 原生设置面板（侧边栏设置 → voice），本文件仅作 config.json 兜底参考。路径：~/.dsh/voice/config.json",
+  "engine": "auto",
+  "_engine_comment": "engine: auto = 有火山 Key 用火山，否则用 SAPI。也可显式设 volcano / windows-sapi",
+  "cloud": {
+    "provider": "volcano",
+    "apiKey": "${VOLCANO_API_KEY}",
+    "_apiKey_comment": "火山引擎 X-Api-Key，支持 ${ENV_VAR} 引用避免明文落盘。未设置则回退 SAPI 离线语音",
+    "voice": "zh_female_daimengchuanmei_moon_bigtts",
+    "resourceId": "seed-tts-1.0",
+    "format": "pcm",
+    "sampleRate": 24000,
+    "silenceDuration": 400,
+    "leadingSilence": 1500,
+    "_leadingSilence_comment": "蓝牙前导静音 ms，默认 1500。有线/扬声器用户可设 0",
+    "pauseControl": true,
+    "pauseSentenceMs": 400,
+    "pauseCommaMs": 200,
+    "timeout": 30000,
+    "nlpPara": {
+      "punctuationBias": 0,
+      "inequalityChoose": 0
+    },
+    "_nlpPara_comment": "音质增强（seed-tts-1.0）：punctuationBias=标点偏向 0-6（纠正长句/无标点文本断句）；inequalityChoose=不等号等特殊字符读法 0/1",
+    "energyRate": 0,
+    "_energyRate_comment": "能量增益 -50~100，提升响度感知（与 loudness_rate 叠加）",
+    "retries": 1,
+    "_retries_comment": "网络瞬时故障重试次数（业务错误如 Key 失效/资源未开通不重试）"
+  },
+  "rate": 200,
+  "volume": 1.3,
+  "_volume_comment": "服务端音量 1.3 = +30%，替代系统音量增强（无 Python 依赖）",
+  "notificationSound": "melodious",
+  "sceneSounds": {
+    "task_start": "beep:info",
+    "task_complete": "beep:success",
+    "task_error": "beep:error",
+    "need_interaction": "beep:warning",
+    "milestone": "beep:milestone"
+  },
+  "textClean": true,
+  "maxTextLength": 200,
+  "roles": [],
+  "scenes": {
+    "task_start": {
+      "voice": "zh_female_daimengchuanmei_moon_bigtts",
+      "rate": 190,
+      "volume": 1.3,
+      "emotion": "calm"
+    },
+    "task_complete": {
+      "voice": "zh_female_daimengchuanmei_moon_bigtts",
+      "rate": 220,
+      "volume": 1.3,
+      "emotion": "happy"
+    },
+    "task_error": {
+      "voice": "zh_female_daimengchuanmei_moon_bigtts",
+      "rate": 210,
+      "volume": 1.3,
+      "emotion": "angry"
+    },
+    "need_interaction": {
+      "voice": "zh_female_daimengchuanmei_moon_bigtts",
+      "rate": 200,
+      "volume": 1.3,
+      "emotion": "calm"
+    },
+    "milestone": {
+      "voice": "zh_female_daimengchuanmei_moon_bigtts",
+      "rate": 210,
+      "volume": 1.3,
+      "emotion": "happy"
+    }
+  }
+}
