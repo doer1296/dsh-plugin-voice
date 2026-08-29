@@ -23,13 +23,13 @@
 - **播报前文本清洗**：去代码块 / URL / Markdown 标记，不会读出「井号、反引号」
 - **情绪声学映射**：6 情绪（happy/sad/angry/calm/excited/neutral）→ pitch + 语速/音量偏移
 - **蓝牙前导静音**：默认 1500ms，语音前插全静音，防蓝牙耳机吞首字；有线用户可设 0
-- **场景化提示音**：9 内置 WAV 音效（音量 +100% 放大，播放前自动修正文件头），5 场景可各自选配，播报前先响唤醒蓝牙链路
+- **场景化提示音**：9 内置 WAV 音效（音量 +100% 放大，播放前自动修正文件头），**提示音完全由 5 场景各自决定**——开始/完成/出错/呼叫/关键点各配一个，无场景或未配置则不响提示音（无通用提示音兜底），播报前先响唤醒蓝牙链路
 - **角色系统**：多 agent 不同音色 / 语速 / 情绪（简化版，name 精确匹配）
 - **设置面板**：音量 / 语速 / 引擎 / 火山 Key / 音色 / 大模型 / 蓝牙前导静音 / 云端音质（能量增益/重试/停顿）/ 5 场景模板 + 5 场景提示音下拉 + 「试听当前配置」按钮 + 实际引擎状态，顶部带版本徽标
 - **新任务自动播报「开始」**：发新消息（agent 空闲）＝新任务开始，自动播放「开始」模板（开关 `onTaskStart`，默认开）
 - **提问自动呼叫（防卡住）**：任务中途 agent 要你确认/选择/填入（提问弹窗）时，等待过久且你已离开 → 自动播报「呼叫」语音；你回答即取消（开关 `onQuestion`，默认开）
 - **配置单源**：面板设置的 16 键存于 `~/.dsh/settings.yaml` 的 `voice:` 分区，实时生效；`config.json` 只补面板没有的高级参数（roles/scenes/cloud 音质参数），不会覆盖面板改的值
-- **SAPI 固定兜底**：火山失败（断网 / 额度 / Key 失效）自动回退离线语音，播报永不中断；本机无中文语音包时明确提示（不假装播报成功）
+- **SAPI 固定兜底**：火山失败（断网 / 额度 / Key 失效）自动回退离线语音，播报永不中断；文本含中文时**自动选本机中文语音**（如 Huihui，经 Culture zh-* 识别），无中文语音包时明确提示（不假装播报成功）
 
 ## 安装
 
@@ -42,11 +42,14 @@ dsh web   # 重启生效
 
 **方式二：手动**
 
+在 profile 目录下安装：
+
 ```bash
+cd ~/.dsh/profiles/web
 npm i dsh-plugin-voice
 ```
 
-在 dsh 的 profile patch（`~/.dsh/profiles/<profile>/cordis.patch.yml`）中挂载：
+再在 profile patch（`~/.dsh/profiles/web/cordis.patch.yml`）中挂载：
 
 ```yaml
 - insert:
@@ -98,11 +101,11 @@ agent 会调用 `speak` 工具，语音播报会念出内容（自动清洗 Mark
 
 | 场景 | 默认文案 |
 |---|---|
-| `task_start` | 开始执行任务 |
-| `task_complete` | 任务已经完成了，快回来看看结果吧 |
-| `task_error` | 任务出错了，需要你处理一下 |
-| `need_interaction` | 我需要你过来看看 |
-| `milestone` | 一个子任务完成了 |
+| `task_start` | 开始执行任务了 |
+| `task_complete` | 任务已经完成了，快来看看结果了 |
+| `task_error` | 任务出错了，需要你处理一下子 |
+| `need_interaction` | 我需要你过来看看了 |
+| `milestone` | 我已跨过最高的山了，后面都是小打小闹了 |
 
 ## 场景 × 情绪映射
 
@@ -129,7 +132,7 @@ agent 会调用 `speak` 工具，语音播报会念出内容（自动清洗 Mark
 
 - **同进程**：所有逻辑在 dsh host 进程内，无独立 MCP Server / 无 watcher 子进程
 - **引擎层 factory 抽象**：`createTTSEngine` 工厂 + provider 接口（speak/getVoices/stop），未来加新引擎仅需新增 provider 文件
-- **后端 Windows 原生**：桌面通知 NotifyIcon / 场景蜂鸣 Console.Beep / 播放 WAV Media.SoundPlayer / 空闲检测 GetLastInputInfo（均 PowerShell，零 Python）
+- **后端 Windows 原生**：桌面通知 NotifyIcon / 提示音 Media.SoundPlayer 播 WAV / 空闲检测 GetLastInputInfo（均 PowerShell，零 Python）。场景蜂鸣 Console.Beep 为 legacy 兼容（`beep:` 前缀仍可用，UI 已只提供 WAV 音效）
 - **HTTP 用 Node 22+ 原生 fetch**：不引 axios / node-fetch
 
 ## 兼容性与权限说明
@@ -138,7 +141,7 @@ agent 会调用 `speak` 工具，语音播报会念出内容（自动清洗 Mark
 
 **兼容性**
 
-- **操作系统**：Windows 10 / 11（依赖 SAPI、Media.SoundPlayer、Console.Beep、GetLastInputInfo 等 Windows 原生能力，不支持 macOS / Linux）
+- **操作系统**：Windows 10 / 11（依赖 SAPI、Media.SoundPlayer、GetLastInputInfo 等 Windows 原生能力，不支持 macOS / Linux）
 - **Node.js**：>= 22.5（依赖原生 fetch / node:https）
 - **适配 profile**：`web`（设置面板 + /voice 测试页）；其他 profile 可用 speak 等工具但无 Web 界面
 - **火山 Key 可选**：未配置自动回退 SAPI 离线语音，播报永不中断

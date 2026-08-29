@@ -4,12 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## [0.2.2] - 2025
 
-### Changed
-- **删除「通用提示音」（notificationSound）**：提示音完全由 5 场景的 `sceneSounds` 决定——有场景音效才响（开始/完成/出错/呼叫/关键点各一个），无场景或未配置则不响提示音。设置面板 / 测试页 / config.example 同步移除通用提示音
-
-## [0.2.1] - 2025
-
 ### Fixed
+- **SAPI 中文语音检测改用 Culture**：原按语音名匹配（`/zh|chinese/`）会漏判 "Microsoft Huihui Desktop"（名字无中文标记）→ 改为检测 `VoiceInfo.Culture`（`zh-*`）+ 语音名含 huihui 兜底；文本含中文时**自动选本机中文语音**（如 Huihui），不再误报「未安装中文语音」
+- **WAV 文件头修复**：8 个内置 WAV 的 RIFF size 字段短 4 字节、melodious.wav 的 data 字段错误（导致音量放大只对开头 ~90ms 生效）→ 全部修正为合法值，音频数据零改动
 - **SAPI 无中文语音时不再「静默无声」**：speak 前检测文本含中文 + 本机 SAPI 无中文语音 → 明确报错提示（安装中文语音包或配置火山 Key），不假装播报成功
 - **SAPI 不再被传入火山音色 ID**：SelectVoice 只匹配本机 SAPI 语音名，无匹配用系统默认（不再抛异常）；PowerShell 加 `$ErrorActionPreference='Stop'` + spawn 捕获 stderr，失败带详情
 - **`VOLCANO_API_KEY` 环境变量通道打通**：`loadConfig()` 对合并后的完整配置统一解析 `${ENV_VAR}`，默认值里的 `${VOLCANO_API_KEY}` 也能被解析（此前字面串被误判为「未配 Key」而回退 SAPI）
@@ -18,7 +15,8 @@ All notable changes to this project will be documented in this file.
 - **get_voices / speak / 设置面板暴露实际引擎**（volcano=火山云端 / windows-sapi=离线），用户可自助确认是否在跑云端
 
 ### Changed
-- 设置面板新增：通用提示音下拉、云端音质参数（能量增益 / 网络重试 / 句间停顿 / 逗号停顿）、实际引擎状态；`/voice` 测试页同步
+- **删除「通用提示音」（notificationSound）**：提示音完全由 5 场景的 `sceneSounds` 决定——有场景音效才响（开始/完成/出错/呼叫/关键点各一个），无场景或未配置则不响提示音。设置面板 / 测试页 / config.example 同步移除通用提示音
+- 设置面板新增：云端音质参数（能量增益 / 网络重试 / 句间停顿 / 逗号停顿）、实际引擎状态；`/voice` 测试页同步
 - `peerDependencies` 标 `peerDependenciesMeta` optional，消除 pnpm 安装警告
 
 ## [0.2.0] - 2025
