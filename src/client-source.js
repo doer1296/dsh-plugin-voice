@@ -46,6 +46,8 @@ function VoiceSettingsSection() {
   const [cfg, setCfg] = useState(null);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
+  const [openScene, setOpenScene] = useState(false);
+  const [openCloud, setOpenCloud] = useState(false);
 
   const load = async () => {
     try {
@@ -142,7 +144,18 @@ function VoiceSettingsSection() {
     btn: { background: DSW("button-info-fill"), border: "none", color: "#fff", borderRadius: "8px", padding: "8px 22px", fontSize: "13px", cursor: "pointer", marginTop: "14px", fontWeight: 500 },
     msg: { color: DSW("label-secondary"), fontSize: "12px", marginTop: "8px", marginLeft: "10px" },
     hint: { color: DSW("label-tertiary"), fontSize: "11.5px", marginTop: "6px" },
+    collapsible: { display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", userSelect: "none", marginTop: "16px", marginBottom: "6px" },
+    caret: { color: DSW("label-tertiary"), fontSize: "10px", transition: "transform .15s", display: "inline-block" },
+    caretOpen: { color: DSW("label-tertiary"), fontSize: "10px", transition: "transform .15s", display: "inline-block", transform: "rotate(90deg)" },
   };
+
+  /** 可折叠小节标题：点击标题展开/收起子内容 */
+  const CollapsibleSection = (props) =>
+    React.createElement("div", null,
+      React.createElement("div", { style: styles.collapsible, onClick: () => props.onToggle() },
+        React.createElement("span", { style: props.open ? styles.caretOpen : styles.caret }, "▶"),
+        React.createElement("span", { style: { color: DSW("label-secondary"), fontSize: "13px", fontWeight: 600 } }, props.title)),
+      props.open ? React.createElement("div", null, props.children) : null);
 
   return React.createElement("div", null,
 
@@ -173,7 +186,7 @@ function VoiceSettingsSection() {
     React.createElement("div", { style: styles.row },
       React.createElement("span", { style: styles.label }, "火山音色"),
       React.createElement("input", { type: "text", style: styles.input, value: cfg.cloud?.voice || "", onChange: (e) => setCloud("voice", e.target.value) })),
-    React.createElement("div", { style: styles.hint }, "音色要和大模型版本匹配，比如 1.0 版本可能不支持 2.0 特有音色"),
+    React.createElement("div", { style: styles.hint }, "音色需与所选大模型版本匹配"),
     React.createElement("div", { style: styles.row },
       React.createElement("span", { style: styles.label }, "大模型"),
       React.createElement("select", { style: styles.input, value: cfg.cloud?.resourceId || "seed-tts-1.0", onChange: (e) => setCloud("resourceId", e.target.value) },
@@ -182,64 +195,11 @@ function VoiceSettingsSection() {
     React.createElement("div", { style: styles.row },
       React.createElement("span", { style: styles.label }, "音量"),
       React.createElement("input", { type: "number", min: 0.5, max: 2, step: 0.1, style: styles.input, value: cfg.volume ?? 1.3, onChange: (e) => set("volume", Number(e.target.value) || 1.3) })),
-    React.createElement("div", { style: styles.hint }, "音量 0.5-2.0，默认 1.3（+30%）"),
+    React.createElement("div", { style: styles.hint }, "0.5-2.0，默认 1.3（+30%）"),
     React.createElement("div", { style: styles.row },
       React.createElement("span", { style: styles.label }, "语速"),
       React.createElement("input", { type: "number", min: 50, max: 300, step: 10, style: styles.input, value: cfg.rate ?? 200, onChange: (e) => set("rate", Number(e.target.value) || 200) })),
-    React.createElement("div", { style: styles.hint }, "语速 50-300，默认 200（原速）"),
-
-    React.createElement("div", { style: styles.sectionTitle }, "云端音质（高级）"),
-    React.createElement("div", { style: styles.row },
-      React.createElement("span", { style: styles.label }, "能量增益"),
-      React.createElement("input", { type: "number", min: -50, max: 100, style: styles.input, value: cfg.cloud?.energyRate ?? 0, onChange: (e) => setCloud("energyRate", Number(e.target.value) || 0) })),
-    React.createElement("div", { style: styles.hint }, "energyRate -50~100：提升响度感知（0=默认），大音量用户不用改"),
-    React.createElement("div", { style: styles.row },
-      React.createElement("span", { style: styles.label }, "网络重试"),
-      React.createElement("input", { type: "number", min: 0, max: 5, style: styles.input, value: cfg.cloud?.retries ?? 1, onChange: (e) => setCloud("retries", Number(e.target.value) || 0) })),
-    React.createElement("div", { style: styles.row },
-      React.createElement("span", { style: styles.label }, "句间停顿(ms)"),
-      React.createElement("input", { type: "number", min: 0, max: 2000, style: styles.input, value: cfg.cloud?.pauseSentenceMs ?? 400, onChange: (e) => setCloud("pauseSentenceMs", Number(e.target.value) || 0) })),
-    React.createElement("div", { style: styles.row },
-      React.createElement("span", { style: styles.label }, "逗号停顿(ms)"),
-      React.createElement("input", { type: "number", min: 0, max: 2000, style: styles.input, value: cfg.cloud?.pauseCommaMs ?? 200, onChange: (e) => setCloud("pauseCommaMs", Number(e.target.value) || 0) })),
-
-    React.createElement("div", { style: styles.sectionTitle }, "试听当前配置"),
-    React.createElement("div", { style: styles.row },
-      React.createElement("button", { style: styles.btn, onClick: testCurrent }, "试听当前音色"),
-      React.createElement("span", { style: styles.msg }, "用当前填写的音色播报一句，验证音色/模型/音量/语速")),
-    React.createElement("div", { style: styles.hint }, "试听需要先保存火山 Key，且音色已开通对应模型资源"),
-
-    React.createElement("div", { style: styles.sectionTitle }, "呼叫与蓝牙"),
-    React.createElement("div", { style: styles.row },
-      React.createElement("span", { style: styles.label }, "确认窗口（秒）"),
-      React.createElement("input", { type: "number", min: 5, max: 600, style: styles.input, value: cfg.callDelaySeconds ?? 60, onChange: (e) => set("callDelaySeconds", Number(e.target.value) || 60) })),
-    React.createElement("div", { style: styles.row },
-      React.createElement("span", { style: styles.label }, "蓝牙前导静音(ms)"),
-      React.createElement("input", { type: "number", min: 0, max: 3000, style: styles.input, value: cfg.leadingSilence ?? 1500, onChange: (e) => set("leadingSilence", Number(e.target.value) || 0) })),
-    React.createElement("div", { style: styles.switchRow },
-      React.createElement("input", { type: "checkbox", id: "vc-turend", checked: !!cfg.onTurnEnd, onChange: (e) => set("onTurnEnd", e.target.checked) }),
-      React.createElement("label", { htmlFor: "vc-turend", style: styles.switchLabel }, "回合结束自动通知")),
-    React.createElement("div", { style: styles.hint }, "说明：任务答完 → 先弹桌面通知 → 等 N 秒（确认窗口）→ 这期间你有任何操作（发消息/点会话/滚动/拖动）＝人回来了，就不打扰了；完全没操作＝人不在，就语音叫你回来"),
-    React.createElement("div", { style: styles.switchRow },
-      React.createElement("input", { type: "checkbox", id: "vc-taskstart", checked: cfg.onTaskStart !== false, onChange: (e) => set("onTaskStart", e.target.checked) }),
-      React.createElement("label", { htmlFor: "vc-taskstart", style: styles.switchLabel }, "新任务自动播报「开始」语音")),
-    React.createElement("div", { style: styles.hint }, "说明：你发新消息（agent 空闲）＝新任务开始，自动播报「开始」模板，让你知道任务已开工"),
-    React.createElement("div", { style: styles.switchRow },
-      React.createElement("input", { type: "checkbox", id: "vc-question", checked: cfg.onQuestion !== false, onChange: (e) => set("onQuestion", e.target.checked) }),
-      React.createElement("label", { htmlFor: "vc-question", style: styles.switchLabel }, "agent 提问等待过久且你离开时播报「呼叫」")),
-    React.createElement("div", { style: styles.hint }, "说明：任务中途 agent 需要你确认/选择/填入时（提问弹窗），若发起时你已离开（系统空闲 > 60s）3 秒后立即播报「呼叫」；你在场则等 N 秒未回答再播，防止任务长时间卡住；你回答后自动取消"),
-    React.createElement("div", { style: styles.switchRow },
-      React.createElement("input", { type: "checkbox", id: "vc-autocall", checked: !!cfg.autoCall, onChange: (e) => set("autoCall", e.target.checked) }),
-      React.createElement("label", { htmlFor: "vc-autocall", style: styles.switchLabel }, "N秒没人确认就播放「完成」语音叫我回来")),
-
-    React.createElement("div", { style: styles.sectionTitle }, "场景提示音（语音播报前先响一声，音量已 +100%）"),
-    React.createElement("div", { style: styles.hint }, "每个场景可独立选提示音：内置 9 个 WAV 音效；播放时自动放大 100% 音量（高音量文件自动降增益防削波），语音音量不受影响"),
-    SCENE_NAMES.map((s) =>
-      React.createElement("div", { key: "sound-" + s.key, style: styles.row },
-        React.createElement("span", { style: styles.label }, s.label + "提示音"),
-        React.createElement("select", { style: styles.input, value: cfg.sceneSounds?.[s.key] || "", onChange: (e) => setSceneSound(s.key, e.target.value) },
-          React.createElement("option", { value: "" }, "（跟随默认）"),
-          SOUND_OPTIONS.map((o) => React.createElement("option", { key: o.value, value: o.value }, o.label))))),
+    React.createElement("div", { style: styles.hint }, "50-300，默认 200"),
 
     React.createElement("div", { style: styles.sectionTitle }, "文案模板（模型不写 message 时使用；支持 {{summary}}）"),
     React.createElement("div", { style: { color: DSW("label-tertiary"), fontSize: "12px", marginBottom: "4px" } }, "开始"),
@@ -252,6 +212,57 @@ function VoiceSettingsSection() {
     React.createElement("textarea", { style: styles.textarea, value: cfg.templates?.need_interaction || "", placeholder: "我需要你过来看看了", onChange: (e) => setTpl("need_interaction", e.target.value) }),
     React.createElement("div", { style: { color: DSW("label-tertiary"), fontSize: "12px", marginTop: "8px", marginBottom: "4px" } }, "出错"),
     React.createElement("textarea", { style: styles.textarea, value: cfg.templates?.task_error || "", placeholder: "任务出错了，需要你处理一下子", onChange: (e) => setTpl("task_error", e.target.value) }),
+
+    React.createElement("div", { style: styles.row },
+      React.createElement("button", { style: styles.btn, onClick: testCurrent }, "试听当前音色"),
+      React.createElement("span", { style: styles.msg }, "验证音色/模型/音量/语速")),
+    React.createElement("div", { style: styles.hint }, "需先保存火山 Key 且音色已开通对应资源"),
+
+    React.createElement("div", { style: styles.sectionTitle }, "呼叫与蓝牙"),
+    React.createElement("div", { style: styles.row },
+      React.createElement("span", { style: styles.label }, "确认窗口（秒）"),
+      React.createElement("input", { type: "number", min: 5, max: 600, style: styles.input, value: cfg.callDelaySeconds ?? 60, onChange: (e) => set("callDelaySeconds", Number(e.target.value) || 60) })),
+    React.createElement("div", { style: styles.row },
+      React.createElement("span", { style: styles.label }, "蓝牙前导静音(ms)"),
+      React.createElement("input", { type: "number", min: 0, max: 3000, style: styles.input, value: cfg.leadingSilence ?? 1500, onChange: (e) => set("leadingSilence", Number(e.target.value) || 0) })),
+    React.createElement("div", { style: styles.switchRow },
+      React.createElement("input", { type: "checkbox", id: "vc-turend", checked: !!cfg.onTurnEnd, onChange: (e) => set("onTurnEnd", e.target.checked) }),
+      React.createElement("label", { htmlFor: "vc-turend", style: styles.switchLabel }, "回合结束自动通知")),
+    React.createElement("div", { style: styles.hint }, "任务答完弹通知 → 等 N 秒：期间你有操作＝人在，不打扰；无操作＝人不在，语音叫你回来"),
+    React.createElement("div", { style: styles.switchRow },
+      React.createElement("input", { type: "checkbox", id: "vc-taskstart", checked: cfg.onTaskStart !== false, onChange: (e) => set("onTaskStart", e.target.checked) }),
+      React.createElement("label", { htmlFor: "vc-taskstart", style: styles.switchLabel }, "新任务自动播报「开始」语音")),
+    React.createElement("div", { style: styles.switchRow },
+      React.createElement("input", { type: "checkbox", id: "vc-question", checked: cfg.onQuestion !== false, onChange: (e) => set("onQuestion", e.target.checked) }),
+      React.createElement("label", { htmlFor: "vc-question", style: styles.switchLabel }, "agent 提问等待过久且你离开时播报「呼叫」")),
+    React.createElement("div", { style: styles.hint }, "提问需你确认时：你已离开 → 3 秒后立即呼叫；你在场 → 等 N 秒未答再叫；回答后自动取消"),
+    React.createElement("div", { style: styles.switchRow },
+      React.createElement("input", { type: "checkbox", id: "vc-autocall", checked: !!cfg.autoCall, onChange: (e) => set("autoCall", e.target.checked) }),
+      React.createElement("label", { htmlFor: "vc-autocall", style: styles.switchLabel }, "N秒没人确认就播放「完成」语音叫我回来")),
+
+    CollapsibleSection({ title: "场景提示音（播报前先响一声，音量已 +100%）", open: openScene, onToggle: () => setOpenScene((v) => !v), children: [
+      React.createElement("div", { style: styles.hint }, "各场景独立选 WAV 音效，自动放大音量防削波"),
+      SCENE_NAMES.map((s) =>
+        React.createElement("div", { key: "sound-" + s.key, style: styles.row },
+          React.createElement("span", { style: styles.label }, s.label + "提示音"),
+          React.createElement("select", { style: styles.input, value: cfg.sceneSounds?.[s.key] || "", onChange: (e) => setSceneSound(s.key, e.target.value) },
+            React.createElement("option", { value: "" }, "（跟随默认）"),
+            SOUND_OPTIONS.map((o) => React.createElement("option", { key: o.value, value: o.value }, o.label))))) ] }),
+
+    CollapsibleSection({ title: "云端音质（高级）", open: openCloud, onToggle: () => setOpenCloud((v) => !v), children: [
+      React.createElement("div", { style: styles.row },
+        React.createElement("span", { style: styles.label }, "能量增益"),
+        React.createElement("input", { type: "number", min: -50, max: 100, style: styles.input, value: cfg.cloud?.energyRate ?? 0, onChange: (e) => setCloud("energyRate", Number(e.target.value) || 0) })),
+      React.createElement("div", { style: styles.hint }, "提升响度感知（0=默认），大音量用户不用改"),
+      React.createElement("div", { style: styles.row },
+        React.createElement("span", { style: styles.label }, "网络重试"),
+        React.createElement("input", { type: "number", min: 0, max: 5, style: styles.input, value: cfg.cloud?.retries ?? 1, onChange: (e) => setCloud("retries", Number(e.target.value) || 0) })),
+      React.createElement("div", { style: styles.row },
+        React.createElement("span", { style: styles.label }, "句间停顿(ms)"),
+        React.createElement("input", { type: "number", min: 0, max: 2000, style: styles.input, value: cfg.cloud?.pauseSentenceMs ?? 400, onChange: (e) => setCloud("pauseSentenceMs", Number(e.target.value) || 0) })),
+      React.createElement("div", { style: styles.row },
+        React.createElement("span", { style: styles.label }, "逗号停顿(ms)"),
+        React.createElement("input", { type: "number", min: 0, max: 2000, style: styles.input, value: cfg.cloud?.pauseCommaMs ?? 200, onChange: (e) => setCloud("pauseCommaMs", Number(e.target.value) || 0) })) ] }),
 
     React.createElement("div", null,
       React.createElement("button", { style: styles.btn, disabled: saving, onClick: save }, saving ? "保存中…" : "保存设置"),
