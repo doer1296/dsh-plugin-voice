@@ -1,7 +1,7 @@
 /**
  * 场景化提示音（移植自 agent-voice-mcp-minus dist/tts/notification-sound.js，仅保留 Windows）。
  *
- * 播报前先响一声提示音，提前唤醒蓝牙音频链路；与蓝牙前导静音（leadingSilence）配套。
+ * 播报前先响一声提示音，提前唤醒蓝牙音频链路；提示音播完立即接语音（无间隔）。
  *
  * 支持的 sound 值：
  *   - false / 'none'           → 不响
@@ -64,22 +64,19 @@ function beepScript(pattern) {
 }
 
 /**
- * 修复 + 前导静音 + 放大 WAV，写临时文件返回路径。
+ * 修复 + 放大 WAV，写临时文件返回路径。
  *
- * 三件事：
- * 1. 前导静音：leadingSilenceMs > 0 时在 data 前插全静音。目的——静音先响唤醒
- *    蓝牙音频链路，提示音随后播放才完整可闻（否则提示音被蓝牙建链杂音吞掉）。
- *    仅支持标准 16-bit PCM WAV（head 44 字节：fmt/channels/rate/bits/dataSize）。
- * 2. 修复 RIFF size 字段：部分内置 WAV 该字段比实际小 4 字节，Windows
+ * 两件事：
+ * 1. 修复 RIFF size 字段：部分内置 WAV 该字段比实际小 4 字节，Windows
  *    SoundPlayer 严格校验会直接拒播（报 "wave header is corrupt"）→ 静音。
  *    按实际文件大小重写，保证 SoundPlayer 能播。
- * 3. 16-bit PCM 采样放大 gain 倍：自适应增益，若峰值 ×gain 超 32767 自动降
+ * 2. 16-bit PCM 采样放大 gain 倍：自适应增益，若峰值 ×gain 超 32767 自动降
  *    到不削波的最大值。
  *
- * 始终返回修复后的副本（即使无放大也修复 RIFF 头 / 前导静音），调用方负责在
+ * 始终返回修复后的副本（即使无放大也修复 RIFF 头），调用方负责在
  * 播放完成后删除返回的临时文件（若与源路径不同）。
  */
-function amplifyWav(srcPath, gain, leadingSilenceMs = 0) {
+function amplifyWav(srcPath, gain) {
   let buf
   try { buf = readFileSync(srcPath) } catch { return srcPath }
   try {
@@ -87,34 +84,16 @@ function amplifyWav(srcPath, gain, leadingSilenceMs = 0) {
     if (buf.length < 44) return srcPath
     if (buf.toString('ascii', 0, 4) !== 'RIFF' || buf.toString('ascii', 8, 12) !== 'WAVE') return srcPath
 
-    // 0. 前导静音：重建 buffer（44 字节头 + 静音采样 + 原数据）
     const fmt = buf.readUInt16LE(20)
     const channels = buf.readUInt16LE(22)
     const bits = buf.readUInt16LE(34)
-    const sampleRate = buf.readUInt32LE(24)
     const dataOffset = 44
-    const dataSize = buf.readUInt32LE(40)
-    if (leadingSilenceMs > 0 && fmt === 1 && bits === 16 && channels >= 1 &&
-        dataOffset + dataSize <= buf.length) {
-      const bytesPerSample = channels * (bits / 8)
-      // 静音采样数 = 时长 × 采样率；静音字节对齐到采样边界
-      const silenceSamples = Math.round((leadingSilenceMs / 1000) * sampleRate)
-      const silenceBytes = silenceSamples * bytesPerSample
-      if (silenceBytes > 0) {
-        const newBuf = Buffer.alloc(dataOffset + silenceBytes + dataSize)
-        buf.copy(newBuf, 0, 0, dataOffset)                       // 44 字节头
-        buf.copy(newBuf, dataOffset + silenceBytes, dataOffset)  // 原数据后移（静音为全 0）
-        newBuf.writeUInt32LE(silenceBytes + dataSize, 40)        // data chunk size 更新
-        newBuf.writeUInt32LE(newBuf.length - 8, 4)               // RIFF size 更新
-        buf = newBuf
-      }
-    }
 
     // 1. 修复 RIFF size 字段（关键：部分文件少 4 字节，SoundPlayer 拒播）
     const actualSize = buf.length - 8
     buf.writeUInt32LE(actualSize, 4)
 
-    // 2. 放大（data 现在可能含前导静音，放大静音无副作用，整体处理）
+    // 2. 放大
     const curDataSize = buf.readUInt32LE(40)
     if (fmt === 1 && channels === 1 && bits === 16 &&
         dataOffset + curDataSize <= buf.length && typeof gain === 'number' && gain > 1.001) {
@@ -141,7 +120,7 @@ function amplifyWav(srcPath, gain, leadingSilenceMs = 0) {
     }
   } catch { return srcPath }
 
-  // 写临时修复/放大/前导静音文件
+  // 写临时修复/放大文件
   const tmp = join(tmpdir(), `dsh-voice-amp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.wav`)
   try {
     writeFileSync(tmp, buf)
@@ -149,7 +128,7 @@ function amplifyWav(srcPath, gain, leadingSilenceMs = 0) {
   } catch { return srcPath }
 }
 
-export async function playNotificationSound(sound, leadingSilenceMs = 0) {
+export async function playNotificationSound(sound) {
   if (sound === false || sound === 'none') return
 
   // 场景蜂鸣：beep:info / beep:success / beep:error / beep:warning / beep:milestone / beep:single
@@ -181,13 +160,13 @@ export async function playNotificationSound(sound, leadingSilenceMs = 0) {
   }
 
   // 播放 WAV（Windows: PowerShell Media.SoundPlayer）
-  // 先按 SOUND_GAIN 放大音量；leadingSilenceMs > 0 时在 WAV 前插全静音——静音先响
-  // 唤醒蓝牙音频链路，提示音随后播放才完整可闻（否则提示音会被建链杂音吞掉）。
-  const playPath = amplifyWav(soundPath, SOUND_GAIN, leadingSilenceMs)
+  // 先按 SOUND_GAIN 放大音量再播。
+  const playPath = amplifyWav(soundPath, SOUND_GAIN)
   try {
     await playFile('powershell', [
       '-NoProfile', '-c',
-      `(New-Object Media.SoundPlayer '${playPath}').Play(); Start-Sleep -Seconds 3`,
+      // PlaySync 同步播放：提示音播完进程立即退出，语音无缝衔接（无间隔）。
+      `(New-Object Media.SoundPlayer '${playPath}').PlaySync()`,
     ])
   } finally {
     if (playPath !== soundPath) {
@@ -210,6 +189,6 @@ function playFile(command, args) {
     }
     proc.on('close', done)
     proc.on('error', () => resolve())
-    setTimeout(done, 3000) // 不超过 3s
+    setTimeout(done, 10000) // 兜底上限：PlaySync 正常在提示音时长内自然退出，仅防挂死
   })
 }

@@ -5,7 +5,6 @@
  * 核心：
  *   - v3 流式接口 /api/v3/tts/unidirectional（X-Api-Key 鉴权）
  *   - PCM → WAV 客户端封装（16bit 单声道，24kHz 即该音色带宽上限）
- *   - 蓝牙前导静音（leadingSilence，语音前插全静音）
  *   - 长文案按句切分并行合成 + 段间静音（pauseControl）
  *   - 情绪声学映射（pitch ±12 + speech_rate/loudness_rate 偏移，seed-tts v3 不支持服务端 emotion）
  *   - Node 22+ 原生 fetch（无需 axios / node-fetch）
@@ -91,7 +90,7 @@ function pcmToWav(pcm, sampleRate) {
   return Buffer.concat([header, pcm])
 }
 
-// 生成指定毫秒的静音（16bit 单声道，全零即静音）。用于蓝牙前导静音 + 段间停顿。
+// 生成指定毫秒的静音（16bit 单声道，全零即静音）。用于句间/逗号停顿（pauseControl）。
 function silenceBytes(ms, sampleRate) {
   if (!ms || ms <= 0) return Buffer.alloc(0)
   const frames = Math.round((ms / 1000) * sampleRate)
@@ -167,7 +166,6 @@ export class VolcanoProvider {
       volume: options.volume,
       emotion: options.emotion,
       emotionIntensity: options.emotionIntensity,
-      skipLeadingSilence: options.skipLeadingSilence,
     })
     const tempFile = join(tmpdir(), `dsh-voice-volcano-${Date.now()}.wav`)
     this.tempFile = tempFile
@@ -214,8 +212,8 @@ export class VolcanoProvider {
       energyRate: this.config.energyRate ?? 0,
       retries: this.config.retries ?? 1, // 网络瞬时故障重试次数
     }
-    const lead = params?.skipLeadingSilence ? 0 : (this.config.leadingSilence || 0)
-    const pauseControl = this.config.pauseControl ?? true
+  // 段间停顿按 pauseControl 控制（silenceBytes 仅用于句间/逗号停顿，无前导静音）
+  const pauseControl = this.config.pauseControl ?? true
     const segs = pauseControl && format === 'pcm'
       ? splitForPauses(params.text, {
           sentenceMs: this.config.pauseSentenceMs ?? 400,
@@ -227,7 +225,7 @@ export class VolcanoProvider {
         segs.map((seg, i) => this.synthOnce(seg.text, ctx, i === segs.length - 1 ? silenceDuration : 0))
       )
       if (results.every((r) => r.status === 'fulfilled')) {
-        const pieces = [silenceBytes(lead, sampleRate)]
+        const pieces = []
         results.forEach((r, i) => {
           pieces.push(r.value)
           if (i < results.length - 1) pieces.push(silenceBytes(segs[i].pauseAfterMs, sampleRate))
@@ -237,7 +235,7 @@ export class VolcanoProvider {
     }
     const audio = await this.synthOnce(params.text, ctx, silenceDuration)
     if (format === 'pcm') {
-      return pcmToWav(Buffer.concat([silenceBytes(lead, sampleRate), audio]), sampleRate)
+      return pcmToWav(audio, sampleRate)
     }
     return fixWavDataSize(audio)
   }

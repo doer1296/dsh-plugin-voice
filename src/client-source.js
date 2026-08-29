@@ -7,7 +7,6 @@
  * 参照 dsh-plugin-notify 的 client-source.js 结构，扩展 voice 特有配置：
  *   - 引擎选择（auto/volcano/windows-sapi）
  *   - 火山 API Key / 火山音色 / 大模型 / 音量
- *   - 蓝牙前导静音
  *   - 5 场景文案模板（SAPI 兜底固定启用，不可关闭）
  */
 const React = require("react");
@@ -71,7 +70,6 @@ function VoiceSettingsSection() {
         onTaskStart: cfg.onTaskStart !== false,
         onQuestion: cfg.onQuestion !== false,
         autoCall: !!cfg.autoCall,
-        leadingSilence: Number(cfg.leadingSilence) || 1500,
         textClean: cfg.textClean !== false,
         maxTextLength: Number(cfg.maxTextLength) || 200,
         volume: Number(cfg.volume) >= 0 ? Number(cfg.volume) : 1.3,
@@ -222,9 +220,6 @@ function VoiceSettingsSection() {
     React.createElement("div", { style: styles.row },
       React.createElement("span", { style: styles.label }, "确认窗口（秒）"),
       React.createElement("input", { type: "number", min: 5, max: 600, style: styles.input, value: cfg.callDelaySeconds ?? 60, onChange: (e) => set("callDelaySeconds", Number(e.target.value) || 60) })),
-    React.createElement("div", { style: styles.row },
-      React.createElement("span", { style: styles.label }, "蓝牙前导静音(ms)"),
-      React.createElement("input", { type: "number", min: 0, max: 3000, style: styles.input, value: cfg.leadingSilence ?? 1500, onChange: (e) => set("leadingSilence", Number(e.target.value) || 0) })),
     React.createElement("div", { style: styles.switchRow },
       React.createElement("input", { type: "checkbox", id: "vc-turend", checked: !!cfg.onTurnEnd, onChange: (e) => set("onTurnEnd", e.target.checked) }),
       React.createElement("label", { htmlFor: "vc-turend", style: styles.switchLabel }, "回合结束自动通知")),

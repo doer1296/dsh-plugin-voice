@@ -7,7 +7,7 @@
 
 > DeepSeek Harness 插件：语音 + 通知出口——agent 通过云端 TTS（火山 seed-tts 高音质，失败自动回退 SAPI）/ 桌面通知 / 提示音主动联系用户。
 >
-> 融合 [dsh-plugin-notify](https://github.com/huguangyu666/dsh-plugin-notify)（DSH 原生深度集成 + 智能确认窗口呼叫）与 [agent-voice-mcp-minus](https://github.com/doer1296/agent-voice-mcp-minus)（云端 seed-tts + 长文案停顿 + 文本清洗 + 情绪映射 + 蓝牙前导静音）两套优势，为 DSH 量身定制，性能最优、适配性最好。Windows 原生，零 Python 依赖。
+> 融合 [dsh-plugin-notify](https://github.com/huguangyu666/dsh-plugin-notify)（DSH 原生深度集成 + 智能确认窗口呼叫）与 [agent-voice-mcp-minus](https://github.com/doer1296/agent-voice-mcp-minus)（云端 seed-tts + 长文案停顿 + 文本清洗 + 情绪映射）两套优势，为 DSH 量身定制，性能最优、适配性最好。Windows 原生，零 Python 依赖。
 
 ## 功能
 
@@ -22,13 +22,12 @@
 - **长文案停顿控制**：按句切分并行合成 + 句间静音，长播报有呼吸感、节奏自然
 - **播报前文本清洗**：去代码块 / URL / Markdown 标记，不会读出「井号、反引号」
 - **情绪声学映射**：6 情绪（happy/sad/angry/calm/excited/neutral）→ pitch + 语速/音量偏移
-- **蓝牙前导静音**：默认 1500ms，语音前插全静音，防蓝牙耳机吞首字；有线用户可设 0
-- **场景化提示音**：9 内置 WAV 音效（音量 +100% 放大，播放前自动修正文件头），**提示音完全由 5 场景各自决定**——开始/完成/出错/呼叫/关键点各配一个，无场景或未配置则不响提示音（无通用提示音兜底），播报前先响唤醒蓝牙链路
+- **场景化提示音**：9 内置 WAV 音效（音量 +100% 放大，播放前自动修正文件头），**提示音完全由 5 场景各自决定**——开始/完成/出错/呼叫/关键点各配一个，无场景或未配置则不响提示音（无通用提示音兜底）；播报前先响提示音唤醒蓝牙链路，播完**立即接语音**（无间隔，不吞首字）
 - **角色系统**：多 agent 不同音色 / 语速 / 情绪（简化版，name 精确匹配）
-- **设置面板**：音量 / 语速 / 引擎 / 火山 Key / 音色 / 大模型 / 蓝牙前导静音 / 云端音质（能量增益/重试/停顿）/ 5 场景模板 + 5 场景提示音下拉 + 「试听当前配置」按钮 + 实际引擎状态，顶部带版本徽标
+- **设置面板**：音量 / 语速 / 引擎 / 火山 Key / 音色 / 大模型 / 云端音质（能量增益/重试/停顿）/ 5 场景模板 + 5 场景提示音下拉 + 「试听当前配置」按钮 + 实际引擎状态，顶部带版本徽标
 - **新任务自动播报「开始」**：发新消息（agent 空闲）＝新任务开始，自动播放「开始」模板（开关 `onTaskStart`，默认开）
 - **提问自动呼叫（防卡住）**：任务中途 agent 要你确认/选择/填入（提问弹窗）时，等待过久且你已离开 → 自动播报「呼叫」语音；你回答即取消（开关 `onQuestion`，默认开）
-- **配置单源**：面板设置的 16 键存于 `~/.dsh/settings.yaml` 的 `voice:` 分区，实时生效；`config.json` 只补面板没有的高级参数（roles/scenes/cloud 音质参数），不会覆盖面板改的值
+- **配置单源**：面板设置项存于 `~/.dsh/settings.yaml` 的 `voice:` 分区，实时生效；`config.json` 只补面板没有的高级参数（roles/scenes/cloud 音质参数），不会覆盖面板改的值
 - **SAPI 固定兜底**：火山失败（断网 / 额度 / Key 失效）自动回退离线语音，播报永不中断；文本含中文时**自动选本机中文语音**（如 Huihui，经 Culture zh-* 识别），无中文语音包时明确提示（不假装播报成功）
 
 ## 安装
@@ -117,16 +116,11 @@ agent 会调用 `speak` 工具，语音播报会念出内容（自动清洗 Mark
 | `need_interaction` | calm | 200 |
 | `milestone` | happy | 210 |
 
-## 蓝牙前导静音（重要）
+## 播放顺序
 
-`cloud.leadingSilence`（**默认 `1500`ms**）：蓝牙耳机链路建立需 1-2s。本参数**插在提示音之前**——静音先响唤醒蓝牙链路，提示音随后播放才完整可闻（否则提示音被建链杂音吞掉），接着语音直接跟上，全程不卡首字。
+带场景提示音的播报：`[提示音] → [语音]`（提示音播完**立即**接语音，无间隔）。
 
-播放顺序：`[前导静音 1500ms 唤醒蓝牙] → [提示音 完整可闻] → [语音]`
-
-- **蓝牙耳机用户**：保持 `1500`（仍吞字可增至 `2000`）
-- **有线耳机 / 扬声器用户**：设 `0`，播报更紧凑（此时无提示音前置静音，语音自带前导静音兜底）
-
-设置面板「行为偏好 → 蓝牙前导静音」可调。
+提示音先响唤醒蓝牙音频链路（蓝牙建链约 1s），语音随后无缝跟上，首字不被吞；语音在提示音播放前已预合成完成，衔接零等待。
 
 ## 架构
 
@@ -156,7 +150,7 @@ agent 会调用 `speak` 工具，语音播报会念出内容（自动清洗 Mark
 ## 致谢
 
 - **[dsh-plugin-notify](https://github.com/huguangyu666/dsh-plugin-notify)** by huguangyu666 —— DSH 原生集成骨架、智能确认窗口、事件驱动兜底、user_activity 工具
-- **[agent-voice-mcp-minus](https://github.com/doer1296/agent-voice-mcp-minus)**（fork of [agent-voice-mcp](https://github.com/al96169/agent-voice-mcp) by Antonio Liang）—— 云端 TTS 引擎、长文案停顿、文本清洗、情绪映射、蓝牙前导静音
+- **[agent-voice-mcp-minus](https://github.com/doer1296/agent-voice-mcp-minus)**（fork of [agent-voice-mcp](https://github.com/al96169/agent-voice-mcp) by Antonio Liang）—— 云端 TTS 引擎、长文案停顿、文本清洗、情绪映射
 - [火山引擎 · 豆包语音合成大模型](https://www.volcengine.com/product/voice)
 
 ## License

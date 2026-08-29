@@ -4,7 +4,7 @@
  *
  * 融合自：
  *   - dsh-plugin-notify（DSH 全注入点集成 + 智能确认窗口呼叫 + 事件驱动兜底）
- *   - agent-voice-mcp-minus（云端 seed-tts / Edge TTS + 长文案停顿 + 文本清洗 + 情绪映射 + 蓝牙前导静音）
+ *   - agent-voice-mcp-minus（云端 seed-tts / Edge TTS + 长文案停顿 + 文本清洗 + 情绪映射）
  *
  * 用法：
  *   - agent 工具 speak（模型自主播报，含 scene/emotion/role）
@@ -390,7 +390,6 @@ export function apply(ctx) {
       onTaskStart: z.boolean().default(true),
       onQuestion: z.boolean().default(true),
       autoCall: z.boolean().default(true),
-      leadingSilence: z.number().default(1500),
       textClean: z.boolean().default(true),
       maxTextLength: z.number().default(200),
       volume: z.number().default(1.3),
@@ -765,6 +764,8 @@ export function apply(ctx) {
         const text = raw || renderTemplate(cfg.templates?.[scene] ?? DEFAULT_TEMPLATES[scene] ?? DEFAULT_TEMPLATES.task_complete, {})
         const used = await notify(mode, 'dsh 语音', text, {
           scene, emotion: body.emotion, role: body.role,
+          // 试听按钮显式传当前填写值（未保存也能试听）；不传则回落 settings 保存值
+          voice: body.voice, rate: body.rate, volume: body.volume,
         })
         sendJson(res, 200, { ok: true, mode: used.mode, engine: used.engine ?? null, text: text.slice(0, 80) })
       } catch (e) {
@@ -804,7 +805,6 @@ export function apply(ctx) {
             if (body.onTaskStart !== undefined) patch.onTaskStart = body.onTaskStart
             if (body.onQuestion !== undefined) patch.onQuestion = body.onQuestion
             if (body.autoCall !== undefined) patch.autoCall = body.autoCall
-            if (body.leadingSilence !== undefined) patch.leadingSilence = body.leadingSilence
             if (body.textClean !== undefined) patch.textClean = body.textClean
             if (body.maxTextLength !== undefined) patch.maxTextLength = body.maxTextLength
             if (body.volume !== undefined) patch.volume = body.volume

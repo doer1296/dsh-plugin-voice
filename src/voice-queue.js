@@ -99,11 +99,8 @@ export class VoiceQueue {
           if (sound && sound !== false && sound !== 'none') {
             this.hasPlayedNotification = true
             const playSound = await getPlayNotificationSound()
-            // 前导静音交给提示音带头（静音先响唤醒蓝牙 → 提示音完整可闻），
-            // 语音侧不再重复前插静音（否则双份静音拖长间隔）
-            const leadMs = item.options?.leadingSilence ?? 0
-            onBeforePlay = () => playSound(sound, leadMs)
-            if (leadMs > 0) item.options = { ...item.options, skipLeadingSilence: true }
+            // 提示音播完立即接语音（无前导静音、无间隔），蓝牙链路由提示音本身唤醒
+            onBeforePlay = () => playSound(sound)
           }
         }
         await this.engine.speak(item.text, item.options, onBeforePlay)

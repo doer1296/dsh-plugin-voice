@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.3] - 2025
+
+### Removed
+- **删除蓝牙前导静音（leadingSilence）**：整条链路移除——设置面板/测试页输入框、settings schema 字段、config 默认值、提示音 WAV 前插静音逻辑、语音侧 skipLeadingSilence。播放顺序简化为「提示音 → 语音」，蓝牙链路由提示音本身唤醒（实测提示音足以建链，前置静音非必需）
+
+### Changed
+- **提示音播完立即接语音（无间隔）**：SoundPlayer 由异步 `Play()` + 固定 `Sleep 3s`（提示音结束后残留 0.5~1s 死等）改为同步 `PlaySync()` 播完即退；语音在提示音播放前已预合成完成，衔接零等待
+- **设置面板布局优化**：「场景提示音」「云端音质（高级）」改为默认折叠的可展开区块并后移，「文案模板」紧跟引擎设置；各提示文案精简
+
+### Fixed
+- **试听按钮读的是未保存的当前填写值**：`/voice/api` handler 此前丢弃 body 的 voice/rate/volume（只透传 scene/emotion/role），试听实际回落 settings 已保存值——面板改了没保存时试听的是旧配置；现补透传，试听与填写值一致（其他调用方不传这些字段，行为不变）
+
+### Chore
+- 删除死文件 `src/tts/interface.js`（纯 JSDoc 注释零引用）；遗留测试脚本 `test-template.mjs` 清理
+
 ## [0.2.2] - 2025
 
 ### Fixed

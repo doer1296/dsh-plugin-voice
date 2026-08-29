@@ -11,8 +11,6 @@
     "format": "pcm",
     "sampleRate": 24000,
     "silenceDuration": 400,
-    "leadingSilence": 1500,
-    "_leadingSilence_comment": "蓝牙前导静音 ms，插在提示音之前（先静音唤醒蓝牙链路，提示音才完整可闻）。默认 1500。有线/扬声器用户可设 0",
     "pauseControl": true,
     "pauseSentenceMs": 400,
     "pauseCommaMs": 200,

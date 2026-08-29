@@ -2,7 +2,7 @@
  * 配置加载与选项解析（移植自 agent-voice-mcp-minus dist/config.js，简化角色匹配）。
  *
  * 配置优先级（settings.yaml 单源，config.json 补高级参数）：
- *   1. DSH 原生设置（settings.yaml 的 voice 分区）—— 面板 16 键最高优先（覆盖 config.json 同键）
+ *   1. DSH 原生设置（settings.yaml 的 voice 分区）—— 面板设置项最高优先（覆盖 config.json 同键）
  *   2. config.json（~/.dsh/voice/config.json）—— 兜底 + 面板没有的高级参数（roles/scenes/cloud 音质参数）
  *   3. 默认值
  *
@@ -39,7 +39,6 @@ function mapSettingsToConfig(v) {
   if (v.onTaskStart !== undefined) result.onTaskStart = v.onTaskStart
   if (v.onQuestion !== undefined) result.onQuestion = v.onQuestion
   if (v.autoCall !== undefined) result.autoCall = v.autoCall
-  if (v.leadingSilence !== undefined) result.leadingSilence = v.leadingSilence
   if (v.textClean !== undefined) result.textClean = v.textClean
   if (v.maxTextLength !== undefined) result.maxTextLength = v.maxTextLength
   if (v.volume !== undefined) result.volume = v.volume
@@ -54,7 +53,6 @@ function mapSettingsToConfig(v) {
   if (v.cloud_timeout !== undefined) cloud.timeout = v.cloud_timeout
   if (v.cloud_pauseSentenceMs !== undefined) cloud.pauseSentenceMs = v.cloud_pauseSentenceMs
   if (v.cloud_pauseCommaMs !== undefined) cloud.pauseCommaMs = v.cloud_pauseCommaMs
-  if (v.leadingSilence !== undefined) cloud.leadingSilence = v.leadingSilence
   if (Object.keys(cloud).length) result.cloud = cloud
   if (v.templates && typeof v.templates === 'object') result.templates = v.templates
   if (v.sceneSounds && typeof v.sceneSounds === 'object') result.sceneSounds = v.sceneSounds
@@ -71,7 +69,6 @@ const DEFAULT_CONFIG = {
     format: 'pcm',
     sampleRate: 24000,
     silenceDuration: 400,
-    leadingSilence: 1500,
     pauseControl: true,
     pauseSentenceMs: 400,
     pauseCommaMs: 200,
@@ -139,7 +136,7 @@ export function loadConfig(configPath) {
   }
 
   // 2. DSH 原生设置（settings.yaml 的 voice 分区）——最高优先级。
-  //    scope.get() 返回 resolved（含 schema 默认值），因此面板 16 键在此覆盖 config.json；
+  //    scope.get() 返回 resolved（含 schema 默认值），因此面板设置项在此覆盖 config.json；
   //    settings 不认识的键（roles/scenes/cloud.nlpPara/energyRate...）保留 config.json 值。
   if (_settingsScope && !configPath) {
     try {
@@ -229,7 +226,5 @@ export function resolveOptions(config, scene, override, role) {
   if (override?.volume !== undefined) result.volume = override.volume
   if (override?.emotion !== undefined) result.emotion = override.emotion
   if (override?.emotionIntensity !== undefined) result.emotionIntensity = override.emotionIntensity
-  // 蓝牙前导静音：提示音带头静音（唤醒蓝牙链路）用；语音侧在同一提示音后播放时跳过自身前导静音
-  result.leadingSilence = config.leadingSilence ?? config.cloud?.leadingSilence ?? 0
   return result
 }

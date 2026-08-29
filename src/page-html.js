@@ -159,10 +159,6 @@ button.ghost { background: transparent; border: 1px solid var(--dsw-alias-border
         <span>任务中途 agent 要你确认/选择/填入时，等待过久且你离开 → 自动播报「呼叫」防卡住</span>
       </div>
     </div>
-    <div class="row">
-      <label>蓝牙前导静音(ms)</label>
-      <input type="number" id="set-silence" min="0" max="3000" style="width:90px">
-    </div>
     <div class="row" style="color:var(--dsw-alias-label-secondary,#9aa3ad);font-size:12px">
       <span id="engine-status">实际引擎：…</span>
     </div>
@@ -230,7 +226,6 @@ async function loadSettings() {
     $('#set-mode').value = c.defaultMode || 'toast';
     $('#set-engine').value = c.engine || 'auto';
     $('#set-delay').value = c.callDelaySeconds || 60;
-    $('#set-silence').value = c.cloud?.leadingSilence ?? 1500;
     $('#set-taskstart').checked = c.onTaskStart !== false;
     $('#set-question').checked = c.onQuestion !== false;
     // 实际引擎状态（volcano / windows-sapi）
@@ -248,7 +243,6 @@ async function saveSettings() {
     callDelaySeconds: Number($('#set-delay').value) || 60,
     onTaskStart: $('#set-taskstart').checked,
     onQuestion: $('#set-question').checked,
-    cloud: { leadingSilence: Number($('#set-silence').value) ?? 1500 },
   };
   const r = await fetch('/voice/api/settings', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
   const d = await r.json().catch(() => ({}));
