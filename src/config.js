@@ -65,7 +65,7 @@ function mapSettingsToConfig(v) {
 }
 
 const DEFAULT_CONFIG = {
-  engine: 'mimo', // 默认引擎：小米 MiMo（未配 MiMo Key 时 auto 兜底回退火山/SAPI）
+  engine: 'auto', // 默认 auto：有 MiMo Key 用 MiMo → 否则火山 → 否则 SAPI（候选链自动降级）
   cloud: {
     provider: 'volcano',
     apiKey: '${VOLCANO_API_KEY}',
@@ -108,6 +108,8 @@ const DEFAULT_CONFIG = {
   },
   textClean: true,
   maxTextLength: 200,
+  startupWelcome: true, // DSH 启动后播报一句欢迎语（可改用 startupWelcomeText 自定义文案；false 关闭）
+  startupWelcomeText: '欢迎使用语音助手，我将一直陪伴您',
   roles: [],
   scenes: {
     task_start: { voice: undefined, rate: 190, volume: 1, emotion: 'calm' },

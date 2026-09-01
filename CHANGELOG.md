@@ -10,7 +10,7 @@ All notable changes to this project will be documented in this file.
   - 预置音色开箱即用：mimo_default / 冰糖 / 茉莉 / 苏打 / 白桦 / Mia / Chloe / Milo / Dean（9 个，`getVoices` 全量返回）
   - 长文案分片 + 句间静音拼接（与火山同策略），`apiBase` 可覆盖（测试/内网用）
   - 设置面板 / /voice 测试页 / config.example.json / 环境变量 `MIMO_API_KEY` 全部打通
-  - 引擎自选 + 默认引擎改为 **mimo**；`auto` 选型升级：有 MiMo Key 用 MiMo → 否则火山 → 再否则 SAPI；显式选 mimo/volcano 但 Key 缺失时自动降级下一引擎（不报错）
+  - 引擎自选，默认 **auto**（候选链：有 MiMo Key 用 MiMo → 否则火山 → 再否则 SAPI）；显式选 mimo/volcano 但 Key 缺失时自动降级下一引擎（不报错）
 
 ## [0.2.3] - 2025
 

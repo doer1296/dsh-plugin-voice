@@ -135,11 +135,11 @@ button.ghost { background: transparent; border: 1px solid var(--dsw-alias-border
     <div class="row">
       <label>引擎</label>
       <select id="set-engine">
-        <option value="mimo">mimo（小米 MiMo V2.5-TTS，默认）</option>
         <option value="auto">auto（有 MiMo Key 用 MiMo，否则火山，否则 SAPI）</option>
+        <option value="mimo">mimo（小米 MiMo V2.5-TTS）</option>
         <option value="volcano">volcano（火山 seed-tts，高音质）</option>
         <option value="windows-sapi">windows-sapi（离线，机械音）</option>
-      </select>
+        </select>
     </div>
     <div class="row">
       <label>无人回应等待(秒)</label>
@@ -225,7 +225,7 @@ async function loadSettings() {
     if (!d.config) return;
     const c = d.config;
     $('#set-mode').value = c.defaultMode || 'toast';
-    $('#set-engine').value = c.engine || 'mimo';
+    $('#set-engine').value = c.engine || 'auto';
     $('#set-delay').value = c.callDelaySeconds || 60;
     $('#set-taskstart').checked = c.onTaskStart !== false;
     $('#set-question').checked = c.onQuestion !== false;

@@ -1,7 +1,7 @@
 {
   "_comment": "dsh-plugin-voice 配置示例。配置优先级：settings.yaml 的 voice 分区（面板）> config.json > 默认值。本文件用于补齐面板没有的高级参数（roles/scenes/cloud 音质参数等）。路径：~/.dsh/voice/config.json",
-  "engine": "mimo",
-  "_engine_comment": "engine（默认 mimo = 小米 MiMo V2.5-TTS）：auto = 有 MiMo Key 用 MiMo，否则火山，否则 SAPI；也可显式设 volcano / mimo / windows-sapi。未配对应 Key 时自动降级下一个引擎，不报错",
+  "engine": "auto",
+  "_engine_comment": "engine（默认 auto）：auto = 有 MiMo Key 用 MiMo，否则火山，否则 SAPI；也可显式设 volcano / mimo / windows-sapi。未配对应 Key 时自动降级下一个引擎，不报错",
   "cloud": {
     "provider": "volcano",
     "apiKey": "${VOLCANO_API_KEY}",

@@ -389,7 +389,7 @@ export function apply(ctx) {
   try {
     const voiceSchema = z.object({
       defaultMode: z.string().default('both'),
-      engine: z.string().default('mimo'),
+      engine: z.string().default('auto'),
       callDelaySeconds: z.number().default(60),
       onTurnEnd: z.boolean().default(true),
       onTaskStart: z.boolean().default(true),
@@ -891,4 +891,20 @@ export function apply(ctx) {
       }
     },
   })
+
+  // ── 启动欢迎语：DSH 启动完成后延迟播报一次（引擎懒加载，无需提前预热）──
+  // 开关/文案走 config.json（startupWelcome / startupWelcomeText），默认开启
+  const welcomeCfg = loadConfig()
+  if (welcomeCfg.startupWelcome !== false) {
+    setTimeout(() => {
+      const cfg = loadConfig()
+      notify('speak', '欢迎', cfg.startupWelcomeText || '欢迎使用语音助手，我将一直陪伴您', {
+        emotion: 'happy',
+      }).then((r) => {
+        console.log(`[voice] 启动欢迎语已播报（引擎 ${r?.engine || '?'}）`)
+      }).catch((e) => {
+        console.error('[voice] 启动欢迎语播报失败:', e.message)
+      })
+    }, 5000).unref?.() // 等 5s（Web 服务/设置均已就绪），.unref 不阻塞进程退出
+  }
 }

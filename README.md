@@ -43,9 +43,9 @@ dsh web   # 重启生效
 
 ## 配置
 
-设置面板（DSH 设置 → 语音）即可完成全部常用配置，引擎可自选（默认 **mimo**：小米 MiMo V2.5）。支持两个云端引擎（可同时配置 Key，`auto` 按 MiMo → 火山 → SAPI 顺序自动选择已配 Key 的引擎）：
+设置面板（DSH 设置 → 语音）即可完成全部常用配置，引擎可自选（默认 **auto**）。支持两个云端引擎（可同时配置 Key，`auto` 按 MiMo → 火山 → SAPI 顺序自动选择已配 Key 的引擎）：
 
-- **小米 MiMo**（默认）：在 [mimo.mi.com](https://mimo.mi.com) 控制台获取 API Key → 面板填入（或环境变量 `MIMO_API_KEY`），预置音色开箱即用（mimo_default / 冰糖 / 茉莉 / 苏打 / 白桦 / Mia / Chloe / Milo / Dean）
+- **小米 MiMo**：在 [mimo.mi.com](https://mimo.mi.com) 控制台获取 API Key → 面板填入（或环境变量 `MIMO_API_KEY`），预置音色开箱即用（mimo_default / 冰糖 / 茉莉 / 苏打 / 白桦 / Mia / Chloe / Milo / Dean）
 - **火山**：注册[火山引擎](https://www.volcengine.com/) → 开通「语音合成大模型」→ 创建 X-Api-Key → 面板填入（或环境变量 `VOLCANO_API_KEY`）
 
 未配置任何 Key 自动用 SAPI 离线语音（不报错）。
