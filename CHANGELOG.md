@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.5] - 2025
+
+### Added
+- **启动欢迎语**：DSH 启动完成后 5s 自动播报「欢迎使用语音助手，我将一直陪伴您」——开关 `startupWelcome`（默认开，config.json 设 `false` 关闭）、文案 `startupWelcomeText` 可自定义；播报走正式语音链路（懒加载引擎，无需预热），并打印 `启动欢迎语已播报（引擎 xx）` 日志便于确认实际引擎
+- **设置面板引擎区分区**：MiMo 区块（默认展开，居上）与火山区块（默认折叠，居下）用独立折叠标题分隔，两套 Key/音色不再混排，防混淆
+
+### Changed
+- **默认引擎回退 `auto`**（v0.2.4 曾临时设为 mimo）：`auto` 候选链 = 有 MiMo Key 用 MiMo → 否则火山 → 再否则 SAPI，未配对应 Key 自动降级不报错；设置面板 / /voice 测试页 / config.example.json 默认值同步
+
+### Fixed
+- **音色跨引擎串用修复**：默认引擎切 MiMo 后，settings.yaml 残留火山音色（`zh_female_*`）被当兜底 voice 传给 MiMo → HTTP 400 → 反复回退 SAPI。三保险：`resolveOptions` 按引擎选默认音色（engine=mimo / auto+MiMoKey → `mimo.voice`）+ MiMo provider 音色白名单（不在预置列表自动回退配置音色→默认）+ 火山 provider 反向防御（收到 MiMo 音色如"冰糖"回退火山配置音色）
+- **实测 MiMo 全链路健康**：真实调用 MiMo API 验证——非流式 pcm16 返回裸 PCM，provider 封装 WAV 正确（24kHz/16bit，含真实声音数据）；PowerShell `SoundPlayer.PlaySync()` 实测完整播放成功
+
 ## [0.2.4] - 2025
 
 ### Added
