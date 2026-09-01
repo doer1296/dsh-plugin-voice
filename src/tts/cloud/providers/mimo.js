@@ -198,7 +198,12 @@ export class MimoProvider {
     const model = this.config.model || DEFAULT_MODEL
     const format = this.config.format || 'pcm' // 内部统一用 pcm 拼 WAV（含句间静音）
     const pauseControl = this.config.pauseControl ?? true
-    const voice = params.voice || this.config.voice || DEFAULT_VOICE
+    // 音色白名单：params.voice 可能残留火山音色（如 zh_female_*），不在预置列表则回退配置音色→默认
+    let voice = MIMO_PRESET_VOICES.includes(params.voice) ? params.voice : null
+    if (!voice) voice = MIMO_PRESET_VOICES.includes(this.config.voice) ? this.config.voice : DEFAULT_VOICE
+    if (params.voice && !MIMO_PRESET_VOICES.includes(params.voice)) {
+      console.warn(`[voice] MiMo 音色 "${params.voice}" 不在预置列表，回退 "${voice}"`)
+    }
 
     const instruction = this.buildInstruction(params)
     const timeout = this.config.timeout || 30000

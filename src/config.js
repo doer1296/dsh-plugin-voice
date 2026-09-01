@@ -205,10 +205,19 @@ export function resolveRole(roles, roleParam) {
   return roles[0] // 未匹配回退第一个
 }
 
+/** 按引擎返回默认音色（volcano ↔ mimo 各自独立，避免跨引擎串用导致 API 400）。 */
+function defaultVoiceByEngine(config) {
+  const hasKey = (cfg) => cfg && cfg.apiKey && cfg.apiKey.trim() && !cfg.apiKey.startsWith('${')
+  // auto 选型与 factory 一致：有 MiMo Key → MiMo 音色；否则火山音色
+  const useMimo = config.engine === 'mimo' ||
+    (config.engine === 'auto' && hasKey(config.mimo))
+  return useMimo && config.mimo?.voice ? config.mimo.voice : config.cloud?.voice
+}
+
 /** 解析最终选项：角色配置 > 全局配置 > 场景配置 > 调用参数覆盖。 */
 export function resolveOptions(config, scene, override, role) {
   const result = {
-    voice: role?.voice ?? config.voice ?? config.cloud?.voice,
+    voice: role?.voice ?? config.voice ?? defaultVoiceByEngine(config),
     rate: role?.rate ?? config.rate ?? 200,
     volume: role?.volume ?? config.volume ?? 1.3,
     emotion: role?.emotion,

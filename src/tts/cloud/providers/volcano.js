@@ -14,6 +14,7 @@ import { writeFileSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { request as httpsRequest } from 'node:https'
+import { MIMO_PRESET_VOICES } from './mimo.js'
 
 // 用 node:https 原生发起请求（绕开 undici 全局 dispatcher / fetch 代理劫持，
 // DSH 进程可能把全局 fetch 指向 pi-ai 代理 localhost:3001，该代理不转发火山域名 → 响应缺音频数据）
@@ -181,7 +182,12 @@ export class VolcanoProvider {
   }
 
   async synthesize(params) {
-    const voice = params.voice || this.config.voice || 'zh_female_daimengchuanmei_moon_bigtts'
+    // 跨引擎串用防御：传入的是 MiMo 预置音色（如 冰糖），回退火山配置音色（避免无效音色 400）
+    let voice = params.voice || this.config.voice || 'zh_female_daimengchuanmei_moon_bigtts'
+    if (MIMO_PRESET_VOICES.includes(voice) && !MIMO_PRESET_VOICES.includes(this.config.voice)) {
+      console.warn(`[voice] 火山收到 MiMo 音色 "${voice}"，回退配置音色 "${this.config.voice}"`)
+      voice = this.config.voice || 'zh_female_daimengchuanmei_moon_bigtts'
+    }
     const apiKey = this.config.apiKey || this.config.token
     if (!apiKey) throw new Error('Volcano TTS: 缺少 apiKey（config.cloud.apiKey）')
     const resourceId = this.config.resourceId || 'seed-tts-1.0'
