@@ -214,6 +214,7 @@ function ensureEngine() {
     engine = await createTTSEngine({
       engine: config.engine,
       cloud: config.cloud,
+      mimo: config.mimo,
     })
     // SAPI 兜底固定启用：火山失败（断网/额度/Key 失效）自动回退 SAPI，不可关闭
     const fallbackEngine = await createFallbackEngine()
@@ -388,7 +389,7 @@ export function apply(ctx) {
   try {
     const voiceSchema = z.object({
       defaultMode: z.string().default('both'),
-      engine: z.string().default('auto'),
+      engine: z.string().default('mimo'),
       callDelaySeconds: z.number().default(60),
       onTurnEnd: z.boolean().default(true),
       onTaskStart: z.boolean().default(true),
@@ -401,6 +402,8 @@ export function apply(ctx) {
       cloud_apiKey: z.string().default(''),
       cloud_voice: z.string().default('zh_female_daimengchuanmei_moon_bigtts'),
       cloud_resourceId: z.string().default('seed-tts-1.0'),
+      mimo_apiKey: z.string().default(''),
+      mimo_voice: z.string().default('mimo_default'),
       cloud_energyRate: z.number().default(0),
       cloud_retries: z.number().default(1),
       cloud_timeout: z.number().default(30000),
@@ -821,6 +824,8 @@ export function apply(ctx) {
             if (body.cloud?.timeout !== undefined) patch.cloud_timeout = body.cloud.timeout
             if (body.cloud?.pauseSentenceMs !== undefined) patch.cloud_pauseSentenceMs = body.cloud.pauseSentenceMs
             if (body.cloud?.pauseCommaMs !== undefined) patch.cloud_pauseCommaMs = body.cloud.pauseCommaMs
+            if (body.mimo?.apiKey !== undefined) patch.mimo_apiKey = body.mimo.apiKey
+            if (body.mimo?.voice !== undefined) patch.mimo_voice = body.mimo.voice
             if (body.templates && typeof body.templates === 'object') patch.templates = body.templates
             if (body.sceneSounds && typeof body.sceneSounds === 'object') patch.sceneSounds = body.sceneSounds
             try {

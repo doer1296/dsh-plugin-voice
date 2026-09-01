@@ -5,12 +5,12 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows-blue)](https://github.com/doer1296/dsh-plugin-voice)
 
-> DeepSeek Harness 插件：语音 + 通知出口——agent 通过云端 TTS（火山 seed-tts 高音质，失败自动回退 SAPI）/ 桌面通知 / 提示音主动联系用户。Windows 原生，零 Python 依赖。
+> DeepSeek Harness 插件：语音 + 通知出口——agent 通过云端 TTS（火山 seed-tts / 小米 MiMo V2.5，失败自动回退 SAPI）/ 桌面通知 / 提示音主动联系用户。Windows 原生，零 Python 依赖。
 
 ## 功能
 
-- 云端高质量 TTS：火山 seed-tts 大模型流式合成，6 情绪声学映射
-- 智能兜底：火山失败（断网 / 额度 / Key 失效）自动回退 Windows SAPI 离线语音
+- 云端高质量 TTS：火山 seed-tts 大模型流式合成 + 小米 MiMo V2.5（OpenAI 兼容，预置音色），情绪声学/指令映射
+- 智能兜底：云端引擎失败（断网 / 额度 / Key 失效）自动回退 Windows SAPI 离线语音
 - 场景化提示音：5 场景各配一个内置 WAV 音效，播完立即接语音
 - 智能呼叫：回合结束通知 → 60 秒确认窗口 → 超时且你离开 → 语音叫你回来；agent 提问等待过久也自动呼叫
 - 长文案优化：按句切分并行合成 + 文本清洗（不读代码块 / URL / Markdown 标记）
@@ -43,7 +43,12 @@ dsh web   # 重启生效
 
 ## 配置
 
-设置面板（DSH 设置 → 语音）即可完成全部常用配置。火山 Key：注册[火山引擎](https://www.volcengine.com/) → 开通「语音合成大模型」→ 创建 X-Api-Key → 面板填入（或环境变量 `VOLCANO_API_KEY`）。未配置 Key 自动用 SAPI 离线语音。
+设置面板（DSH 设置 → 语音）即可完成全部常用配置，引擎可自选（默认 **mimo**：小米 MiMo V2.5）。支持两个云端引擎（可同时配置 Key，`auto` 按 MiMo → 火山 → SAPI 顺序自动选择已配 Key 的引擎）：
+
+- **小米 MiMo**（默认）：在 [mimo.mi.com](https://mimo.mi.com) 控制台获取 API Key → 面板填入（或环境变量 `MIMO_API_KEY`），预置音色开箱即用（mimo_default / 冰糖 / 茉莉 / 苏打 / 白桦 / Mia / Chloe / Milo / Dean）
+- **火山**：注册[火山引擎](https://www.volcengine.com/) → 开通「语音合成大模型」→ 创建 X-Api-Key → 面板填入（或环境变量 `VOLCANO_API_KEY`）
+
+未配置任何 Key 自动用 SAPI 离线语音（不报错）。
 
 高级参数（角色 / 场景音色 / 云端音质微调）见 [config.example.json](config.example.json)。
 

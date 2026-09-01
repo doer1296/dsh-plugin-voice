@@ -54,13 +54,18 @@ function mapSettingsToConfig(v) {
   if (v.cloud_pauseSentenceMs !== undefined) cloud.pauseSentenceMs = v.cloud_pauseSentenceMs
   if (v.cloud_pauseCommaMs !== undefined) cloud.pauseCommaMs = v.cloud_pauseCommaMs
   if (Object.keys(cloud).length) result.cloud = cloud
+  // 小米 MiMo（OpenAI 兼容接口，独立 Key/音色）
+  const mimo = {}
+  if (v.mimo_apiKey !== undefined) mimo.apiKey = v.mimo_apiKey
+  if (v.mimo_voice !== undefined) mimo.voice = v.mimo_voice
+  if (Object.keys(mimo).length) result.mimo = mimo
   if (v.templates && typeof v.templates === 'object') result.templates = v.templates
   if (v.sceneSounds && typeof v.sceneSounds === 'object') result.sceneSounds = v.sceneSounds
   return result
 }
 
 const DEFAULT_CONFIG = {
-  engine: 'auto',
+  engine: 'mimo', // 默认引擎：小米 MiMo（未配 MiMo Key 时 auto 兜底回退火山/SAPI）
   cloud: {
     provider: 'volcano',
     apiKey: '${VOLCANO_API_KEY}',
@@ -77,6 +82,18 @@ const DEFAULT_CONFIG = {
     nlpPara: { punctuationBias: 0, inequalityChoose: 0 }, // 标点偏向 / 特殊字符读法
     energyRate: 0,   // 能量增益 -50~100（提升响度感知）
     retries: 1,      // 网络瞬时故障重试次数
+  },
+  // 小米 MiMo V2.5-TTS（OpenAI 兼容 chat.completions，mimo.mi.com）
+  mimo: {
+    provider: 'mimo',
+    apiKey: '${MIMO_API_KEY}',
+    voice: 'mimo_default', // 预置音色：mimo_default/冰糖/茉莉/苏打/白桦/Mia/Chloe/Milo/Dean
+    format: 'pcm',
+    pauseControl: true,
+    pauseSentenceMs: 400,
+    pauseCommaMs: 200,
+    timeout: 30000,
+    retries: 1,
   },
   rate: 200,
   volume: 1,
@@ -125,7 +142,7 @@ export function loadConfig(configPath) {
   let fileConfig = {}
 
   // 1. config.json（兜底：补 settings 面板没有的高级参数，如 roles/scenes/nlpPara 等）
-  //    低优先级——面板能改的 16 个键以 settings 为准，config.json 的同键会被覆盖
+  //    低优先级——面板能改的键以 settings 为准，config.json 的同键会被覆盖
   if (existsSync(resolvedPath)) {
     try {
       const fileVal = JSON.parse(readFileSync(resolvedPath, 'utf-8'))

@@ -135,7 +135,8 @@ button.ghost { background: transparent; border: 1px solid var(--dsw-alias-border
     <div class="row">
       <label>引擎</label>
       <select id="set-engine">
-        <option value="auto">auto（有火山 Key 用火山，否则 SAPI）</option>
+        <option value="mimo">mimo（小米 MiMo V2.5-TTS，默认）</option>
+        <option value="auto">auto（有 MiMo Key 用 MiMo，否则火山，否则 SAPI）</option>
         <option value="volcano">volcano（火山 seed-tts，高音质）</option>
         <option value="windows-sapi">windows-sapi（离线，机械音）</option>
       </select>
@@ -166,7 +167,7 @@ button.ghost { background: transparent; border: 1px solid var(--dsw-alias-border
       <button onclick="saveSettings()">保存设置</button>
       <span id="setmsg"></span>
     </div>
-    <div class="hint">设置保存到 settings.yaml 的 voice 分区，立即生效（引擎切换重置缓存），无需重启 dsh。SAPI 兜底固定启用：火山失败自动回退离线语音。</div>
+    <div class="hint">设置保存到 settings.yaml 的 voice 分区，立即生效（引擎切换重置缓存），无需重启 dsh。SAPI 兜底固定启用：云端引擎（火山 / 小米 MiMo）失败自动回退离线语音。</div>
   </div>
 </main>
 <script>
@@ -224,14 +225,14 @@ async function loadSettings() {
     if (!d.config) return;
     const c = d.config;
     $('#set-mode').value = c.defaultMode || 'toast';
-    $('#set-engine').value = c.engine || 'auto';
+    $('#set-engine').value = c.engine || 'mimo';
     $('#set-delay').value = c.callDelaySeconds || 60;
     $('#set-taskstart').checked = c.onTaskStart !== false;
     $('#set-question').checked = c.onQuestion !== false;
     // 实际引擎状态（volcano / windows-sapi）
     const eng = $('#engine-status');
     if (eng) {
-      const map = { volcano: '火山云端', 'windows-sapi': 'SAPI 离线' };
+      const map = { volcano: '火山云端', mimo: '小米 MiMo 云端', 'windows-sapi': 'SAPI 离线' };
       eng.textContent = '实际引擎：' + (map[d.engine] || d.engine || '未知');
     }
   } catch(e) { $('#setmsg').textContent = '设置读取失败: ' + e.message; }

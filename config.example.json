@@ -1,7 +1,7 @@
 {
   "_comment": "dsh-plugin-voice 配置示例。配置优先级：settings.yaml 的 voice 分区（面板）> config.json > 默认值。本文件用于补齐面板没有的高级参数（roles/scenes/cloud 音质参数等）。路径：~/.dsh/voice/config.json",
-  "engine": "auto",
-  "_engine_comment": "engine: auto = 有火山 Key 用火山，否则用 SAPI。也可显式设 volcano / windows-sapi",
+  "engine": "mimo",
+  "_engine_comment": "engine（默认 mimo = 小米 MiMo V2.5-TTS）：auto = 有 MiMo Key 用 MiMo，否则火山，否则 SAPI；也可显式设 volcano / mimo / windows-sapi。未配对应 Key 时自动降级下一个引擎，不报错",
   "cloud": {
     "provider": "volcano",
     "apiKey": "${VOLCANO_API_KEY}",
@@ -24,6 +24,19 @@
     "_energyRate_comment": "能量增益 -50~100，提升响度感知（与 loudness_rate 叠加）",
     "retries": 1,
     "_retries_comment": "网络瞬时故障重试次数（业务错误如 Key 失效/资源未开通不重试）"
+  },
+  "mimo": {
+    "provider": "mimo",
+    "apiKey": "${MIMO_API_KEY}",
+    "_apiKey_comment": "小米 MiMo V2.5-TTS 的 API Key（mimo.mi.com 控制台获取，OpenAI 兼容 Bearer 鉴权）。未配置则回退 SAPI 离线语音",
+    "voice": "mimo_default",
+    "_voice_comment": "MiMo 预置音色：mimo_default / 冰糖（中文·女）/ 茉莉（中文·女）/ 苏打（中文·男）/ 白桦（中文·男）/ Mia / Chloe / Milo / Dean（英文）",
+    "format": "pcm",
+    "pauseControl": true,
+    "pauseSentenceMs": 400,
+    "pauseCommaMs": 200,
+    "timeout": 30000,
+    "retries": 1
   },
   "rate": 200,
   "volume": 1.3,

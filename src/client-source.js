@@ -84,6 +84,10 @@ function VoiceSettingsSection() {
           pauseSentenceMs: Number(cfg.cloud?.pauseSentenceMs) || 400,
           pauseCommaMs: Number(cfg.cloud?.pauseCommaMs) || 200,
         },
+        mimo: {
+          apiKey: cfg.mimo?.apiKey || "",
+          voice: cfg.mimo?.voice || "mimo_default",
+        },
         templates: cfg.templates || {},
         sceneSounds: cfg.sceneSounds || {},
       };
@@ -106,7 +110,11 @@ function VoiceSettingsSection() {
   const testCurrent = async () => {
     setMsg("");
     try {
-      const voice = cfg.cloud?.voice || "zh_female_daimengchuanmei_moon_bigtts";
+      // auto 现在 MiMo 优先：配了 MiMo Key 就试听 MiMo（与 factory 选型一致）
+      const useMimo = cfg.engine === "mimo" || (cfg.engine === "auto" && cfg.mimo?.apiKey);
+      const voice = useMimo
+        ? (cfg.mimo?.voice || "mimo_default")
+        : (cfg.cloud?.voice || "zh_female_daimengchuanmei_moon_bigtts");
       const r = await fetch("/voice/api", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -127,6 +135,7 @@ function VoiceSettingsSection() {
 
   const set = (key, value) => setCfg((c) => ({ ...c, [key]: value }));
   const setCloud = (key, value) => setCfg((c) => ({ ...c, cloud: { ...(c.cloud || {}), [key]: value } }));
+  const setMimo = (key, value) => setCfg((c) => ({ ...c, mimo: { ...(c.mimo || {}), [key]: value } }));
   const setTpl = (key, value) => setCfg((c) => ({ ...c, templates: { ...(c.templates || {}), [key]: value } }));
   const setSceneSound = (key, value) => setCfg((c) => ({ ...c, sceneSounds: { ...(c.sceneSounds || {}), [key]: value } }));
 
@@ -173,8 +182,9 @@ function VoiceSettingsSection() {
     React.createElement("div", { style: styles.sectionTitle }, "语音引擎"),
     React.createElement("div", { style: styles.row },
       React.createElement("span", { style: styles.label }, "引擎"),
-      React.createElement("select", { style: styles.input, value: cfg.engine || "auto", onChange: (e) => set("engine", e.target.value) },
-        React.createElement("option", { value: "auto" }, "auto（有火山 Key 用火山，否则 SAPI）"),
+      React.createElement("select", { style: styles.input, value: cfg.engine || "mimo", onChange: (e) => set("engine", e.target.value) },
+        React.createElement("option", { value: "mimo" }, "mimo（小米 MiMo V2.5-TTS，默认）"),
+        React.createElement("option", { value: "auto" }, "auto（有 MiMo Key 用 MiMo，否则火山，否则 SAPI）"),
         React.createElement("option", { value: "volcano" }, "volcano（火山 seed-tts，高音质）"),
         React.createElement("option", { value: "windows-sapi" }, "windows-sapi（离线，机械音）"))),
 
@@ -190,6 +200,22 @@ function VoiceSettingsSection() {
       React.createElement("select", { style: styles.input, value: cfg.cloud?.resourceId || "seed-tts-1.0", onChange: (e) => setCloud("resourceId", e.target.value) },
         React.createElement("option", { value: "seed-tts-1.0" }, "seed-tts-1.0"),
         React.createElement("option", { value: "seed-tts-2.0" }, "seed-tts-2.0"))),
+    React.createElement("div", { style: styles.row },
+      React.createElement("span", { style: styles.label }, "MiMo API Key"),
+      React.createElement("input", { type: "password", style: styles.input, value: cfg.mimo?.apiKey || "", placeholder: "小米 MiMo X-Api-Key（mimo.mi.com）", onChange: (e) => setMimo("apiKey", e.target.value) })),
+    React.createElement("div", { style: styles.row },
+      React.createElement("span", { style: styles.label }, "MiMo 音色"),
+      React.createElement("select", { style: styles.input, value: cfg.mimo?.voice || "mimo_default", onChange: (e) => setMimo("voice", e.target.value) },
+        React.createElement("option", { value: "mimo_default" }, "mimo_default（默认）"),
+        React.createElement("option", { value: "冰糖" }, "冰糖（中文·女）"),
+        React.createElement("option", { value: "茉莉" }, "茉莉（中文·女）"),
+        React.createElement("option", { value: "苏打" }, "苏打（中文·男）"),
+        React.createElement("option", { value: "白桦" }, "白桦（中文·男）"),
+        React.createElement("option", { value: "Mia" }, "Mia（英文·女）"),
+        React.createElement("option", { value: "Chloe" }, "Chloe（英文·女）"),
+        React.createElement("option", { value: "Milo" }, "Milo（英文·男）"),
+        React.createElement("option", { value: "Dean" }, "Dean（英文·男）"))),
+    React.createElement("div", { style: styles.hint }, "mimo.mi.com 控制台获取 Key；预置音色开箱即用"),
     React.createElement("div", { style: styles.row },
       React.createElement("span", { style: styles.label }, "音量"),
       React.createElement("input", { type: "number", min: 0.5, max: 2, step: 0.1, style: styles.input, value: cfg.volume ?? 1.3, onChange: (e) => set("volume", Number(e.target.value) || 1.3) })),
